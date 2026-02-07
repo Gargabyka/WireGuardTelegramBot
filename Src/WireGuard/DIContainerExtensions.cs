@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Net;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using WireGuard.Models;
 using WireGuard.Services;
@@ -21,7 +22,16 @@ public static class DiContainerExtensions
             .ValidateOnStart();
 
         services.AddSingleton<IWireguardService, WireGuardService>();
-        services.AddSingleton<IWireGuardApiService, WireGuardApiService>();
-        services.AddSingleton<HttpClient>();
+
+        services.AddHttpClient<IWireGuardApiService, WireGuardApiService>((sp, client) =>
+            {
+                var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WireguardApiOptions>>().Value;
+                client.BaseAddress = new Uri(options.ApiUrl);
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                CookieContainer = new CookieContainer(),
+                AutomaticDecompression = DecompressionMethods.All,
+            });
     }
 }

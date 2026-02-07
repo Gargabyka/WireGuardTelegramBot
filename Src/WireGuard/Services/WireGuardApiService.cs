@@ -14,8 +14,8 @@ public class WireGuardApiService : WireGuardApiBaseService, IWireGuardApiService
         PropertyNameCaseInsensitive = true,
     };
 
-    public WireGuardApiService(IOptions<WireguardApiOptions> wireGuardOptions)
-        : base(wireGuardOptions)
+    public WireGuardApiService(HttpClient httpClient, IOptions<WireguardApiOptions> options)
+        : base(httpClient, options)
     {
     }
 

@@ -1,13 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Host\Host.csproj" />
+      <PackageReference Include="QRCoder" Version="1.7.0" />
+      <PackageReference Include="Telegram.Bot" Version="22.8.1" />
+    </ItemGroup>
+
+    <ItemGroup>
       <ProjectReference Include="..\WireGuard\WireGuard.csproj" />
     </ItemGroup>
 

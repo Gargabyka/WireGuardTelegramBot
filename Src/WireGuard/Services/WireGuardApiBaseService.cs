@@ -8,29 +8,35 @@ using WireGuard.Models.Request;
 
 namespace WireGuard.Services;
 
-public abstract class WireGuardApiBaseService
+public abstract class WireGuardApiBaseService : IDisposable
 {
     private readonly HttpClient _httpClient;
 
     private readonly WireguardApiOptions _wireguardApiOptions;
     private readonly SemaphoreSlim _authLock = new(1, 1);
     private volatile bool _isAuthenticated;
+    private bool _disposed;
 
-    protected WireGuardApiBaseService(IOptions<WireguardApiOptions> wireGuardOptions)
+    protected WireGuardApiBaseService(
+        HttpClient httpClient,
+        IOptions<WireguardApiOptions> wireGuardOptions)
     {
+        _httpClient = httpClient;
         _wireguardApiOptions = wireGuardOptions.Value;
-
-        var handler = new HttpClientHandler
-        {
-            CookieContainer = new CookieContainer(),
-        };
-
-        _httpClient = new HttpClient(handler)
-        {
-            BaseAddress = new Uri(_wireguardApiOptions.ApiUrl),
-        };
     }
 
+    public void Dispose()
+    {
+        Dispose(disposing: true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Отправляет запрос с авторизацией и повторной попыткой при необходимости
+    /// </summary>
+    /// <param name="requestFactory">Запрос на отправку</param>
+    /// <param name="cancellationToken">Токен отмены операции</param>
+    /// <returns>Ответ на запрос</returns>
     protected async Task<HttpResponseMessage> SendWithAuthRetryAsync(
         Func<HttpRequestMessage> requestFactory,
         CancellationToken cancellationToken)
@@ -50,6 +56,22 @@ public abstract class WireGuardApiBaseService
 
         response.EnsureSuccessStatusCode();
         return response;
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (disposing)
+        {
+            // Важно: HttpClient НЕ освобождаем — им управляет IHttpClientFactory
+            _authLock.Dispose();
+        }
+
+        _disposed = true;
     }
 
     private async Task EnsureAuthenticatedAsync(CancellationToken cancellationToken, bool force = false)

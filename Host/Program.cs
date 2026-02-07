@@ -1,5 +1,5 @@
-using WireGuardTelegramBot.Telegram;
-using WireGuardTelegramBot.WireGuard;
+using Telegram;
+using WireGuard;
 
 var builder = WebApplication.CreateBuilder(args);
 

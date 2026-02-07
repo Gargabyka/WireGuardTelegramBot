@@ -23,6 +23,15 @@ dotnet_diagnostic.sa1623.severity = none # Чтобы было не нужно �
 dotnet_diagnostic.sa1629.severity = none # Чтобы было не нужно все xml-комментарии заканчивать точкой
 dotnet_diagnostic.sa1633.severity = none # Чтобы не добавлять в каждый файл заголовок с копирайтингом
 dotnet_diagnostic.sa1642.severity = none # Чтобы было не нужно добавлять комментарии к конструктору по определенному шаблону (например добавлять слово "Initializes")
+dotnet_diagnostic.SA1200.severity = none # Чтобы директивы находились снаружи объявления namespace, вот так:
+dotnet_diagnostic.SA1206.severity = none # Чтобы модификатор required можно ставить после public
+dotnet_diagnostic.SA1313.severity = none # Чтобы в primary конструкторах можно делать UpperCase
+dotnet_diagnostic.SA1000.severity = none # Чтобы не делать пробел после new()
+dotnet_diagnostic.SA1011.severity = none # Чтобы не делать пробел после [] ?
+dotnet_diagnostic.SA1009.severity = none #
+dotnet_diagnostic.SA1118.severity = none # Разрешить мультистрочный текст
+dotnet_diagnostic.SA1010.severity = none # Разрешить пробел после = []
+dotnet_diagnostic.SA0001.severity = none # Разрешить не документировать код
 
 # Глушим обязательное прокидывание культуры в методы типа ToString
 dotnet_diagnostic.ca1304.severity = suggestion # в char.ToUpper
@@ -54,3 +63,6 @@ dotnet_diagnostic.cs8618.severity = silent # Отключает предупре
 # ReSharper properties
 resharper_csharp_wrap_after_invocation_lpar = true
 resharper_csharp_wrap_arguments_style = chop_if_long
+
+[Host/Program.cs]
+dotnet_diagnostic.SA1516.severity = none
