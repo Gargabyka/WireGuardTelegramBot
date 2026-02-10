@@ -48,9 +48,9 @@ public class RefreshConfigApplyTelegramCallbackHandler : TelegramAdminCallbackHa
 
 		await TryDeleteOriginMessageAsync(update, cancellationToken);
 
+		using var scope = _scopeFactory.CreateScope();
 		try
 		{
-			using var scope = _scopeFactory.CreateScope();
 			var wg = scope.ServiceProvider.GetRequiredService<IWireguardService>();
 
 			if (soft)
@@ -66,7 +66,8 @@ public class RefreshConfigApplyTelegramCallbackHandler : TelegramAdminCallbackHa
 
 			await _bot.SendMessage(
 				chatId: chatId.Value,
-				text: soft ? "Конфиг применён (мягко: wg syncconf)." : "Конфиг применён (жёстко: wg-quick down/up).",
+				text: (soft ? "Конфиг применён (мягко: wg syncconf)." : "Конфиг применён (жёстко: wg-quick down/up).")
+				      + $"\nСервис: {wg.GetType().Name}",
 				replyMarkup: new InlineKeyboardMarkup(
 					InlineKeyboardButton.WithCallbackData("⬅ В админ панель", Encode(back))),
 				cancellationToken: cancellationToken);
@@ -75,10 +76,9 @@ public class RefreshConfigApplyTelegramCallbackHandler : TelegramAdminCallbackHa
 		{
 			var back = new TelegramRequest(Guid.Empty, TelegramCallbackEvent.AdminPanel, TelegramCallbackEvent.AdminPanel);
 
-			// Показываем причину админу, иначе невозможно дебажить “не обновилось”
 			await _bot.SendMessage(
 				chatId: chatId.Value,
-				text: $"Не удалось применить конфиг.\nПричина: {ex.Message}",
+				text: $"Не удалось применить конфиг.\nСервис: {scope.ServiceProvider.GetRequiredService<IWireguardService>().GetType().Name}\nПричина: {ex.Message}",
 				replyMarkup: new InlineKeyboardMarkup(
 					InlineKeyboardButton.WithCallbackData("⬅ В админ панель", Encode(back))),
 				cancellationToken: cancellationToken);
