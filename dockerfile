@@ -9,11 +9,7 @@ RUN dotnet --info
 RUN ls -la
 RUN ls -la Host || true
 
-# Печатаем доступность nuget (часто именно тут проблема)
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
-RUN curl -I https://api.nuget.org/v3/index.json || true
-
-# Restore с подробным логом и для конкретного проекта
+# Restore с подробным логом (это теперь главный источник диагностики)
 RUN dotnet restore Host/Host.csproj -v diag
 
 RUN dotnet publish Host/Host.csproj -c Release -o /app/publish --no-restore
