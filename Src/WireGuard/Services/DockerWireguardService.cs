@@ -60,7 +60,7 @@ public sealed class DockerWireguardService : IWireguardService
 			AttachStdout = false,
 			AttachStderr = false,
 			Tty = false,
-			Cmd = cmd
+			Cmd = cmd,
 		};
 
 		var execCreateResp = await http.PostAsJsonAsync($"containers/{containerId}/exec", execCreate, cancellationToken);
@@ -100,7 +100,7 @@ public sealed class DockerWireguardService : IWireguardService
 		}
 	}
 
-	private static async Task<string?> FindContainerIdByNameAsync(HttpClient http, string name, CancellationToken cancellationToken)
+	private async Task<string?> FindContainerIdByNameAsync(HttpClient http, string name, CancellationToken cancellationToken)
 	{
 		// Docker API: /containers/json возвращает список с Names: ["/wg-easy"]
 		var containers = await http.GetFromJsonAsync<JsonElement>("containers/json?all=1", cancellationToken);
@@ -124,7 +124,7 @@ public sealed class DockerWireguardService : IWireguardService
 		return null;
 	}
 
-	private static HttpClient CreateDockerHttpClient(string socketPath)
+	private HttpClient CreateDockerHttpClient(string socketPath)
 	{
 		var handler = new SocketsHttpHandler
 		{

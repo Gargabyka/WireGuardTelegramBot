@@ -71,13 +71,14 @@ public class RefreshConfigApplyTelegramCallbackHandler : TelegramAdminCallbackHa
 					InlineKeyboardButton.WithCallbackData("⬅ В админ панель", Encode(back))),
 				cancellationToken: cancellationToken);
 		}
-		catch
+		catch (Exception ex)
 		{
 			var back = new TelegramRequest(Guid.Empty, TelegramCallbackEvent.AdminPanel, TelegramCallbackEvent.AdminPanel);
 
+			// Показываем причину админу, иначе невозможно дебажить “не обновилось”
 			await _bot.SendMessage(
 				chatId: chatId.Value,
-				text: "Не удалось применить конфиг. Проверьте логи приложения.",
+				text: $"Не удалось применить конфиг.\nПричина: {ex.Message}",
 				replyMarkup: new InlineKeyboardMarkup(
 					InlineKeyboardButton.WithCallbackData("⬅ В админ панель", Encode(back))),
 				cancellationToken: cancellationToken);
