@@ -1,6 +1,5 @@
 ﻿using System.Net.Http.Json;
 using System.Net.Sockets;
-using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using WireGuard.Models;
@@ -26,27 +25,53 @@ public sealed class DockerWireguardService : IWireguardService
 			? ApplyConfigWithSyncConfAsync(cancellationToken)
 			: ApplyConfigWithDownUpAsync(cancellationToken);
 
-	public async Task ApplyConfigWithSyncConfAsync(CancellationToken cancellationToken)
+	public Task ApplyConfigWithSyncConfAsync(CancellationToken cancellationToken)
 	{
-		await SyncHostConfigFromWgEasyAsync(cancellationToken);
+		// Мягкое применение на ХОСТЕ без перезапуска интерфейса.
+		// Берём strip (он читает /etc/wireguard/wg0.conf на хосте) → temp file → wg syncconf.
+		var cmd =
+			$"tmp=\"$(mktemp /tmp/{_wg.InterfaceName}.XXXXXX.conf)\" && " +
+			$"wg-quick strip {_wg.InterfaceName} > \"$tmp\" && " +
+			$"wg syncconf {_wg.InterfaceName} \"$tmp\" && " +
+			$"rm -f \"$tmp\"";
 
-		// мягкое применение на хосте (без down/up)
-		await RunHostHelperAsync(
-			cmd: ["sh", "-lc", $"wg syncconf {_wg.InterfaceName} <(wg-quick strip {_wg.InterfaceName})"],
-			cancellationToken: cancellationToken);
+		return RunHostHelperAsync(["sh", "-lc", cmd], cancellationToken);
 	}
 
-	public async Task ApplyConfigWithDownUpAsync(CancellationToken cancellationToken)
+	public Task ApplyConfigWithDownUpAsync(CancellationToken cancellationToken)
 	{
-		// жёстко как вы вручную
-		await SyncHostConfigFromWgEasyAsync(cancellationToken);
-
-		await RunHostHelperAsync(
-			cmd: ["sh", "-lc", $"wg-quick down {_wg.InterfaceName} || true; wg-quick up {_wg.InterfaceName}"],
-			cancellationToken: cancellationToken);
+		// Жёсткое применение на ХОСТЕ (как вы делаете вручную по SSH).
+		var cmd = $"wg-quick down {_wg.InterfaceName} || true; wg-quick up {_wg.InterfaceName}";
+		return RunHostHelperAsync(["sh", "-lc", cmd], cancellationToken);
 	}
 
-	private async Task SyncHostConfigFromWgEasyAsync(CancellationToken cancellationToken)
+	private static async Task EnsureImageAsync(HttpClient http, string image, CancellationToken cancellationToken)
+	{
+		var pullUrl = $"images/create?fromImage={Uri.EscapeDataString(image)}";
+		var resp = await http.PostAsync(pullUrl, content: null, cancellationToken);
+		resp.EnsureSuccessStatusCode();
+	}
+
+	private static HttpClient CreateDockerHttpClient(string socketPath)
+	{
+		var handler = new SocketsHttpHandler
+		{
+			ConnectCallback = async (_, ct) =>
+			{
+				var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
+				var endpoint = new UnixDomainSocketEndPoint(socketPath);
+				await socket.ConnectAsync(endpoint, ct);
+				return new NetworkStream(socket, ownsSocket: true);
+			},
+		};
+
+		return new HttpClient(handler)
+		{
+			BaseAddress = new Uri("http://localhost/v1.41/"),
+		};
+	}
+
+	private async Task RunHostHelperAsync(string[] cmd, CancellationToken cancellationToken)
 	{
 		if (!_docker.Enabled)
 		{
@@ -55,56 +80,9 @@ public sealed class DockerWireguardService : IWireguardService
 
 		using var http = CreateDockerHttpClient(_docker.DockerSocketPath);
 
-		var wgEasyId = await FindContainerIdByNameAsync(http, _docker.TargetContainerName, cancellationToken);
-		if (wgEasyId is null)
-		{
-			throw new InvalidOperationException($"Не найден контейнер '{_docker.TargetContainerName}'.");
-		}
-
-		// 1) Считываем wg0.conf из wg-easy (base64, чтобы безопасно передать текст)
-		var confPath = $"/etc/wireguard/{_wg.InterfaceName}.conf";
-		var b64 = await ExecAndCaptureAsync(
-			http,
-			wgEasyId,
-			cmd: ["sh", "-lc", $"base64 -w 0 {EscapeShellArg(confPath)}"],
-			cancellationToken: cancellationToken);
-
-		b64 = b64.Trim();
-		if (string.IsNullOrWhiteSpace(b64))
-		{
-			throw new InvalidOperationException($"Не удалось прочитать {confPath} из контейнера '{_docker.TargetContainerName}'.");
-		}
-
-		// 2) Пишем wg0.conf на хост через helper-контейнер с bind /etc/wireguard
 		await EnsureImageAsync(http, _docker.HelperImage, cancellationToken);
 
-		var helperName = $"wg-host-write-{Guid.NewGuid():N}";
-		var targetPath = $"/etc/wireguard/{_wg.InterfaceName}.conf";
-
-		// ВНИМАНИЕ: b64 содержит только [A-Za-z0-9+/=], безопасно для одинарных кавычек.
-		var writeCmd = $"echo '{b64}' | base64 -d > {EscapeShellArg(targetPath)} && chmod 600 {EscapeShellArg(targetPath)}";
-
-		await RunEphemeralHostHelperAsync(
-			http,
-			cmd: ["sh", "-lc", writeCmd],
-			containerName: helperName,
-			cancellationToken: cancellationToken);
-	}
-
-	private async Task RunHostHelperAsync(string[] cmd, CancellationToken cancellationToken)
-	{
-		using var http = CreateDockerHttpClient(_docker.DockerSocketPath);
-		await EnsureImageAsync(http, _docker.HelperImage, cancellationToken);
-
-		await RunEphemeralHostHelperAsync(
-			http,
-			cmd: cmd,
-			containerName: $"wg-host-run-{Guid.NewGuid():N}",
-			cancellationToken: cancellationToken);
-	}
-
-	private async Task RunEphemeralHostHelperAsync(HttpClient http, string[] cmd, string containerName, CancellationToken cancellationToken)
-	{
+		var helperName = $"wg-host-run-{Guid.NewGuid():N}";
 		var createBody = new
 		{
 			Image = _docker.HelperImage,
@@ -121,7 +99,7 @@ public sealed class DockerWireguardService : IWireguardService
 		};
 
 		var createResp = await http.PostAsJsonAsync(
-			$"containers/create?name={Uri.EscapeDataString(containerName)}",
+			$"containers/create?name={Uri.EscapeDataString(helperName)}",
 			createBody,
 			cancellationToken);
 
@@ -149,7 +127,7 @@ public sealed class DockerWireguardService : IWireguardService
 
 			if (statusCode != 0)
 			{
-				throw new InvalidOperationException($"Host helper failed (exit={statusCode}). Logs:\n{logs}");
+				throw new InvalidOperationException($"Host WireGuard apply failed (exit={statusCode}). Logs:\n{logs}");
 			}
 		}
 		finally
@@ -162,95 +140,5 @@ public sealed class DockerWireguardService : IWireguardService
             { /* ignore */
             }
 		}
-	}
-
-	private async Task<string> ExecAndCaptureAsync(HttpClient http, string containerId, string[] cmd, CancellationToken cancellationToken)
-	{
-		var execCreate = new
-		{
-			AttachStdout = true,
-			AttachStderr = true,
-			Tty = false,
-			Cmd = cmd,
-		};
-
-		var execCreateResp = await http.PostAsJsonAsync($"containers/{containerId}/exec", execCreate, cancellationToken);
-		execCreateResp.EnsureSuccessStatusCode();
-
-		var execCreateJson = await execCreateResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cancellationToken);
-		var execId = execCreateJson.GetProperty("Id").GetString();
-		if (string.IsNullOrWhiteSpace(execId))
-		{
-			throw new InvalidOperationException("Docker exec: empty exec id.");
-		}
-
-		var execStart = new { Detach = false, Tty = false };
-		var execStartResp = await http.PostAsJsonAsync($"exec/{execId}/start", execStart, cancellationToken);
-		execStartResp.EnsureSuccessStatusCode();
-
-		var outputBytes = await execStartResp.Content.ReadAsByteArrayAsync(cancellationToken);
-		var output = Encoding.UTF8.GetString(outputBytes);
-
-		var inspect = await http.GetFromJsonAsync<JsonElement>($"exec/{execId}/json", cancellationToken);
-		var exitCode = inspect.TryGetProperty("ExitCode", out var ec) ? ec.GetInt32() : -1;
-
-		if (exitCode != 0)
-		{
-			throw new InvalidOperationException($"Docker exec failed (exit={exitCode}). Output:\n{output}");
-		}
-
-		return output;
-	}
-
-	private string EscapeShellArg(string value)
-		=> "'" + value.Replace("'", "'\\''") + "'";
-
-	private async Task EnsureImageAsync(HttpClient http, string image, CancellationToken cancellationToken)
-	{
-		var pullUrl = $"images/create?fromImage={Uri.EscapeDataString(image)}";
-		var resp = await http.PostAsync(pullUrl, content: null, cancellationToken);
-		resp.EnsureSuccessStatusCode();
-	}
-
-	private async Task<string?> FindContainerIdByNameAsync(HttpClient http, string name, CancellationToken cancellationToken)
-	{
-		var containers = await http.GetFromJsonAsync<JsonElement>("containers/json?all=1", cancellationToken);
-		foreach (var c in containers.EnumerateArray())
-		{
-			if (!c.TryGetProperty("Names", out var names))
-			{
-				continue;
-			}
-
-			foreach (var n in names.EnumerateArray())
-			{
-				var s = n.GetString();
-				if (string.Equals(s, "/" + name, StringComparison.Ordinal))
-				{
-					return c.GetProperty("Id").GetString();
-				}
-			}
-		}
-
-		return null;
-	}
-
-	private HttpClient CreateDockerHttpClient(string socketPath)
-	{
-		var handler = new SocketsHttpHandler
-		{
-			ConnectCallback = async (_, ct) =>
-			{
-				var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-				var endpoint = new UnixDomainSocketEndPoint(socketPath);
-				await socket.ConnectAsync(endpoint, ct);
-				return new NetworkStream(socket, ownsSocket: true);
-			},
-		};
-
-		return new HttpClient(handler)
-		{
-			BaseAddress = new Uri("http://localhost/v1.41/"),
-		};
 	}
 }
