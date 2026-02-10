@@ -1,4 +1,5 @@
-﻿using Telegram.Bot;
+﻿using JetBrains.Annotations;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Enums;
@@ -10,6 +11,7 @@ namespace Telegram.Service.Callback;
 /// <summary>
 /// Обработчик события AddClientStart <see cref="TelegramCallbackEvent.AddClient"/>
 /// </summary>
+[UsedImplicitly]
 public class AddClientStartTelegramCallbackHandler : TelegramCallbackHandlerBase
 {
     private readonly IAddClientStateStore _addClientState;

@@ -1,9 +1,10 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Telegram.Bot;
 using Telegram.Models;
 using Telegram.Service;
-using Telegram.Service.Callback;
 using Telegram.Service.Factory;
 using Telegram.Service.Interface;
 using Telegram.Service.TextFlows;
@@ -31,7 +32,6 @@ public static class DiContainerExtensions
             return new TelegramBotClient(opts.Token);
         });
 
-        services.AddSingleton<IAddClientStateStore, InMemoryAddClientStateStore>();
         services.AddSingleton<ITelegramHandler, TelegramHandler>();
         services.AddHostedService<TelegramLongPollingService>();
 
@@ -44,29 +44,41 @@ public static class DiContainerExtensions
     private static void AddTelegramUpdate(IServiceCollection services)
     {
         services.AddSingleton<TelegramUpdateFactory>();
-        services.AddSingleton<StartTelegramUpdateHandler>();
+        services.AddTransient<StartTelegramUpdateHandler>();
     }
 
     private static void AddTelegramCallback(IServiceCollection services)
     {
         services.AddSingleton<TelegramCallbackFactory>();
-        services.AddSingleton<ITelegramCallbackHandler, GetInfoTelegramCallbackHandler>();
-        services.AddSingleton<ITelegramCallbackHandler, DownloadConfigTelegramCallbackHandler>();
-        services.AddSingleton<ITelegramCallbackHandler, ListTelegramCallbackHandler>();
-        services.AddSingleton<ITelegramCallbackHandler, DeleteClientAskConfirmCallbackHandler>();
-        services.AddSingleton<ITelegramCallbackHandler, DeleteClientConfirmCallbackHandler>();
-        services.AddSingleton<ITelegramCallbackHandler, MainMenuTelegramCallbackHandler>();
-        services.AddSingleton<ITelegramCallbackHandler, AddClientStartTelegramCallbackHandler>();
-        services.AddSingleton<ITelegramCallbackHandler, AddClientCancelTelegramCallbackHandler>();
+        services.AddAllImplementationsAsTransient<ITelegramCallbackHandler>(typeof(DiContainerExtensions).Assembly);
     }
 
     private static void AddTelegramTextFlows(IServiceCollection services)
     {
-        services.AddSingleton<ITelegramTextFlowHandler, AddClientNameTextFlowHandler>();
+	    services.AddSingleton<ITelegramTextFlowHandler, AddClientNameTextFlowHandler>();
+	    services.AddSingleton<ITelegramTextFlowHandler, AddUserByContactTextFlowHandler>();
     }
 
     private static void AddTelegramStores(IServiceCollection services)
     {
-        services.AddSingleton<IAddClientStateStore, InMemoryAddClientStateStore>();
+	    services.AddSingleton<IAddClientStateStore, InMemoryAddClientStateStore>();
+	    services.AddSingleton<IAddUserStateStore, InMemoryAddUserStateStore>();
+    }
+
+    private static void AddAllImplementationsAsTransient<TService>(
+	    this IServiceCollection services,
+	    Assembly assembly)
+	    where TService : class
+    {
+	    var serviceType = typeof(TService);
+
+	    var implementationTypes = assembly
+		    .GetTypes()
+		    .Where(t => t is { IsAbstract: false, IsInterface: false } && serviceType.IsAssignableFrom(t));
+
+	    foreach (var implType in implementationTypes)
+	    {
+		    services.TryAddEnumerable(ServiceDescriptor.Transient(serviceType, implType));
+	    }
     }
 }

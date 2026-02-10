@@ -6,4 +6,10 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Domain\Domain.csproj" />
+      <ProjectReference Include="..\EFCore\EFCore.csproj" />
+      <ProjectReference Include="..\WireGuard\WireGuard.csproj" />
+    </ItemGroup>
+
 </Project>

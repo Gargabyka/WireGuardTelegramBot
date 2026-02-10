@@ -1,4 +1,5 @@
-﻿using Telegram.Bot;
+﻿using JetBrains.Annotations;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Common.Helper;
@@ -7,11 +8,12 @@ using Telegram.Models;
 using WireGuard.Models;
 using WireGuard.Services.Interface;
 
-namespace Telegram.Service.Callback;
+namespace Telegram.Service.Callback.Admin;
 
 /// <summary>
 /// Обработчик события List <see cref="TelegramCallbackEvent.List"/>
 /// </summary>
+[UsedImplicitly]
 public class ListTelegramCallbackHandler : TelegramCallbackHandlerBase
 {
     private const int PageSize = 9;
@@ -40,13 +42,13 @@ public class ListTelegramCallbackHandler : TelegramCallbackHandlerBase
         var clients = await _wireGuardApiService.GetWireguardClients(cancellationToken);
         if (clients is null or { Length: 0 })
         {
-            var backToMenuEmpty = BackTo(TelegramCallbackEvent.MainMenu, sourceEvent: TelegramCallbackEvent.MainMenu);
+            var backToMenuEmpty = BackTo(TelegramCallbackEvent.AdminPanel, sourceEvent: TelegramCallbackEvent.AdminPanel);
 
             await _telegramBot.SendMessage(
                 chatId: chatId,
                 text: "Не удалось найти клиентов",
                 replyMarkup: new InlineKeyboardMarkup(
-                    InlineKeyboardButton.WithCallbackData("⬅ В главное меню", Encode(backToMenuEmpty))),
+                    InlineKeyboardButton.WithCallbackData("⬅ Назад", Encode(backToMenuEmpty))),
                 cancellationToken: cancellationToken);
 
             await AnswerAsync(update, cancellationToken);
@@ -68,7 +70,7 @@ public class ListTelegramCallbackHandler : TelegramCallbackHandlerBase
         }
 
         var pageClients = clients
-            .OrderBy(c => c.Name)
+            .OrderByDescending(c => c.CreatedAt)
             .Skip(page * PageSize)
             .Take(PageSize)
             .ToArray();
@@ -96,14 +98,13 @@ public class ListTelegramCallbackHandler : TelegramCallbackHandlerBase
 
         rows.Add([
             InlineKeyboardButton.WithCallbackData(canPrev ? "⬅️" : " ", Encode(navPrev)),
-            InlineKeyboardButton.WithCallbackData($"{page + 1}/{totalPages}", Encode(new TelegramRequest(Guid.Empty, TelegramCallbackEvent.List, TelegramCallbackEvent.MainMenu, page))),
+            InlineKeyboardButton.WithCallbackData($"{page + 1}/{totalPages}", Encode(new TelegramRequest(Guid.Empty, TelegramCallbackEvent.List, TelegramCallbackEvent.AdminPanel, page))),
             InlineKeyboardButton.WithCallbackData(canNext ? "➡️" : " ", Encode(navNext)),
         ]);
 
-        // Назад в главное меню
-        var backToMenu = BackTo(TelegramCallbackEvent.MainMenu, sourceEvent: TelegramCallbackEvent.MainMenu);
+        var backToMenu = BackTo(TelegramCallbackEvent.AdminPanel, sourceEvent: TelegramCallbackEvent.AdminPanel);
         rows.Add([
-            InlineKeyboardButton.WithCallbackData("⬅ В главное меню", Encode(backToMenu))
+            InlineKeyboardButton.WithCallbackData("⬅ Назад", Encode(backToMenu))
         ]);
 
         await _telegramBot.SendMessage(

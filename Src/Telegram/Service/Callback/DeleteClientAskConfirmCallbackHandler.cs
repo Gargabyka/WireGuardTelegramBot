@@ -1,4 +1,5 @@
-﻿using Telegram.Bot;
+﻿using JetBrains.Annotations;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Enums;
@@ -9,6 +10,7 @@ namespace Telegram.Service.Callback;
 /// <summary>
 /// Показать подтверждение удаления клиента
 /// </summary>
+[UsedImplicitly]
 public class DeleteClientAskConfirmCallbackHandler : TelegramCallbackHandlerBase
 {
     private readonly ITelegramBotClient _telegramBot;

@@ -15,8 +15,16 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Src\EFCore\EFCore.csproj" />
         <ProjectReference Include="..\Src\Telegram\Telegram.csproj" />
         <ProjectReference Include="..\Src\WireGuard\WireGuard.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.2">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
     </ItemGroup>
     
 </Project>
