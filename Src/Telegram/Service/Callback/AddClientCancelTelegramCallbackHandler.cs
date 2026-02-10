@@ -1,4 +1,5 @@
-﻿using Telegram.Bot;
+﻿using JetBrains.Annotations;
+using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Enums;
@@ -7,6 +8,10 @@ using Telegram.Store.Interfaces;
 
 namespace Telegram.Service.Callback;
 
+/// <summary>
+/// Обработчик отмены добавления клиента
+/// </summary>
+[UsedImplicitly]
 public class AddClientCancelTelegramCallbackHandler : TelegramCallbackHandlerBase
 {
     private readonly IAddClientStateStore _addClientState;

@@ -14,42 +14,45 @@ public class WireGuardService : IWireguardService
         _wireGuardOptions = wireGuardOptions.Value;
     }
 
-    public async Task ApplyConfigAsync(CancellationToken cancellationToken)
+    public Task ApplyConfigAsync(CancellationToken cancellationToken)
+        => _wireGuardOptions.ApplyWithSyncConf
+            ? ApplyConfigWithSyncConfAsync(cancellationToken)
+            : ApplyConfigWithDownUpAsync(cancellationToken);
+
+    public async Task ApplyConfigWithSyncConfAsync(CancellationToken cancellationToken)
     {
-        if (_wireGuardOptions.ApplyWithSyncConf)
+        var stripped = await RunAsync(
+            fileName: "wg-quick",
+            arguments: $"strip {_wireGuardOptions.InterfaceName}",
+            cancellationToken: cancellationToken);
+
+        var tempFile = Path.Combine(
+            Path.GetTempPath(),
+            $"{_wireGuardOptions.InterfaceName}_{Guid.NewGuid():N}.conf");
+
+        try
         {
-            var stripped = await RunAsync(
-                fileName: "wg-quick",
-                arguments: $"strip {_wireGuardOptions.InterfaceName}",
+            await File.WriteAllTextAsync(tempFile, stripped, Encoding.UTF8, cancellationToken);
+
+            await RunAsync(
+                fileName: "wg",
+                arguments: $"syncconf {_wireGuardOptions.InterfaceName} {tempFile}",
                 cancellationToken: cancellationToken);
-
-            var tempFile = Path.Combine(
-                Path.GetTempPath(),
-                $"{_wireGuardOptions.InterfaceName}_{Guid.NewGuid():N}.conf");
-
+        }
+        finally
+        {
             try
             {
-                await File.WriteAllTextAsync(tempFile, stripped, Encoding.UTF8, cancellationToken);
-
-                await RunAsync(
-                    fileName: "wg",
-                    arguments: $"syncconf {_wireGuardOptions.InterfaceName} {tempFile}",
-                    cancellationToken: cancellationToken);
-
-                return;
+                File.Delete(tempFile);
             }
-            finally
-            {
-                try
-                {
-                    File.Delete(tempFile);
-                }
-                catch
-                { /* ignore */
-                }
+            catch
+            { /* ignore */
             }
         }
+    }
 
+    public async Task ApplyConfigWithDownUpAsync(CancellationToken cancellationToken)
+    {
         await RunAsync("wg-quick", $"down {_wireGuardOptions.InterfaceName}", cancellationToken, allowFailure: true);
         await RunAsync("wg-quick", $"up {_wireGuardOptions.InterfaceName}", cancellationToken);
     }

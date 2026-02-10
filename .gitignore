@@ -22,3 +22,6 @@ artifacts/
 
 # Visual Studio cache/options
 .vs/
+
+#Database
+*.db

@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using JetBrains.Annotations;
 using QRCoder;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -13,6 +14,7 @@ namespace Telegram.Service.Callback;
 /// <summary>
 /// Обработчик события GetInfo
 /// </summary>
+[UsedImplicitly]
 public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
 {
     private readonly IWireGuardApiService _wireGuardApiService;
@@ -27,85 +29,95 @@ public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
 
     public override TelegramCallbackEvent CallbackEvent => TelegramCallbackEvent.GetFullInfo;
 
-    public override async Task CallbackHandlerAsync(Update update, TelegramRequest request, CancellationToken cancellationToken)
+    public override async Task CallbackHandlerAsync(
+	    Update update,
+	    TelegramRequest request,
+	    CancellationToken cancellationToken)
     {
-        var (chatId, _, _) = GetCallbackContext(update);
+	    var (chatId, _, _) = GetCallbackContext(update);
 
-        var clients = await _wireGuardApiService.GetWireguardClients(cancellationToken);
-        if (clients is null or { Length: 0 })
-        {
-            await _telegramBot.SendMessage(
-                chatId: chatId,
-                text: "Не удалось найти клиента",
-                cancellationToken: cancellationToken);
-            return;
-        }
+	    var clients = await _wireGuardApiService.GetWireguardClients(cancellationToken);
+	    if (clients is null or { Length: 0 })
+	    {
+		    await _telegramBot.SendMessage(
+			    chatId: chatId,
+			    text: "Не удалось найти клиента",
+			    cancellationToken: cancellationToken);
+		    return;
+	    }
 
-        var client = clients.SingleOrDefault(x => x.Id == request.Id);
-        if (client is null)
-        {
-            await _telegramBot.SendMessage(
-                chatId: chatId,
-                text: "Не удалось найти клиента",
-                cancellationToken: cancellationToken);
-            return;
-        }
+	    var client = clients.SingleOrDefault(x => x.Id == request.Id);
+	    if (client is null)
+	    {
+		    await _telegramBot.SendMessage(
+			    chatId: chatId,
+			    text: "Не удалось найти клиента",
+			    cancellationToken: cancellationToken);
+		    return;
+	    }
 
-        // Чтобы не захламлять чат — удаляем сообщение, на котором нажали (обычно это меню со списком)
-        await TryDeleteOriginMessageAsync(update, cancellationToken);
+	    await TryDeleteOriginMessageAsync(update, cancellationToken);
 
-        var configBytes = await _wireGuardApiService.DownloadConfigAsync(request.Id, cancellationToken);
-        var configText = Encoding.UTF8.GetString(configBytes)
-            .Replace("\r\n", "\n")
-            .Replace("\r", "\n");
+	    var configBytes = await _wireGuardApiService.DownloadConfigAsync(request.Id, cancellationToken);
+	    var configText = Encoding.UTF8.GetString(configBytes)
+		    .Replace("\r\n", "\n")
+		    .Replace("\r", "\n");
 
-        var qrPng = BuildQrPng(configText);
+	    var qrPng = BuildQrPng(configText);
 
-        var caption = $"""
-                       {BuildClientInfoText(client)}
+	    var caption = $"""
+	                   {BuildClientInfoText(client)}
 
-                       Выберите действие:
-                       """;
+	                   Выберите действие:
+	                   """;
 
-        // Важно: SourceEvent НЕ делаем null, иначе ваш кодек может начать плохо парсить.
-        var backRequest = BackTo(TelegramCallbackEvent.List, sourceEvent: TelegramCallbackEvent.List);
+	    // Назад возвращает туда, откуда пришли (MyConnections или List)
+	    var backTarget = request.SourceEvent == TelegramCallbackEvent.MyConnections
+		    ? TelegramCallbackEvent.MyConnections
+		    : TelegramCallbackEvent.List;
 
-        var downloadRequest = WithEvent(
-            request,
-            TelegramCallbackEvent.DownloadConfig,
-            sourceEvent: TelegramCallbackEvent.GetFullInfo);
+	    var backRequest = new TelegramRequest(
+		    Id: Guid.Empty,
+		    CallbackEvent: backTarget,
+		    SourceEvent: backTarget,
+		    Page: request.Page);
 
-        var deleteAskRequest = WithEvent(
-            request,
-            TelegramCallbackEvent.DeleteClientAskConfirm,
-            sourceEvent: TelegramCallbackEvent.GetFullInfo);
+	    var downloadRequest = WithEvent(
+		    request,
+		    TelegramCallbackEvent.DownloadConfig,
+		    sourceEvent: TelegramCallbackEvent.GetFullInfo);
 
-        var markup = new InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton.WithCallbackData("⬇ Скачать конфиг", Encode(downloadRequest))
-            ],
-            [
-                InlineKeyboardButton.WithCallbackData("🗑 Удалить клиента", Encode(deleteAskRequest))
-            ],
-            [
-                InlineKeyboardButton.WithCallbackData("⬅ Назад", Encode(backRequest))
-            ]
-        ]);
+	    var deleteAskRequest = WithEvent(
+		    request,
+		    TelegramCallbackEvent.DeleteClientAskConfirm,
+		    sourceEvent: request.SourceEvent);
 
-        await using var ms = new MemoryStream(qrPng, writable: false);
-        ms.Position = 0;
+	    var markup = new InlineKeyboardMarkup([
+		    [
+			    InlineKeyboardButton.WithCallbackData("⬇ Скачать конфиг", Encode(downloadRequest))
+		    ],
+		    [
+			    InlineKeyboardButton.WithCallbackData("🗑 Удалить клиента", Encode(deleteAskRequest))
+		    ],
+		    [
+			    InlineKeyboardButton.WithCallbackData("⬅ Назад", Encode(backRequest))
+		    ]
+	    ]);
 
-        var inputFile = InputFile.FromStream(ms, fileName: "vpn.png");
+	    await using var ms = new MemoryStream(qrPng, writable: false);
+	    ms.Position = 0;
 
-        await _telegramBot.SendPhoto(
-            chatId: chatId,
-            photo: inputFile,
-            caption: caption,
-            parseMode: ParseMode.None,
-            replyMarkup: markup,
-            cancellationToken: cancellationToken);
+	    var inputFile = InputFile.FromStream(ms, fileName: "vpn.png");
 
-        await AnswerAsync(update, cancellationToken);
+	    await _telegramBot.SendPhoto(
+		    chatId: chatId,
+		    photo: inputFile,
+		    caption: caption,
+		    parseMode: ParseMode.None,
+		    replyMarkup: markup,
+		    cancellationToken: cancellationToken);
+
+	    await AnswerAsync(update, cancellationToken);
     }
 
     private static string BuildClientInfoText(dynamic client)

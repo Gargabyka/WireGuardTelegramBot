@@ -54,4 +54,104 @@ public enum TelegramCallbackEvent
     /// </summary>
     [CallbackCode("ax")]
     AddClientCancel = 12,
+
+    /// <summary>
+    /// Мои соединения (для текущего пользователя)
+    /// </summary>
+    [CallbackCode("mc")]
+    MyConnections = 13,
+
+    #region Admin
+
+    /// <summary>
+    /// Админ панель
+    /// </summary>
+    [CallbackCode("ap")]
+    AdminPanel = 20,
+
+    /// <summary>
+    /// Добавить пользователя
+    /// </summary>
+    [CallbackCode("au")]
+    AddUser = 21,
+
+    /// <summary>
+    /// Список пользователей
+    /// </summary>
+    [CallbackCode("ul")]
+    UserList = 22,
+
+    /// <summary>
+    /// Подробная информация о пользователе
+    /// </summary>
+    [CallbackCode("ui")]
+    UserInfo = 23,
+
+    /// <summary>
+    /// Посмотреть соединения пользователя
+    /// </summary>
+    [CallbackCode("uc")]
+    UserConnections = 24,
+
+    /// <summary>
+    /// Добавить соединение пользователю
+    /// </summary>
+    [CallbackCode("ua")]
+    UserAddConnection = 25,
+
+    /// <summary>
+    /// Удалить пользователя (запрос подтверждения)
+    /// </summary>
+    [CallbackCode("ud")]
+    UserDeleteAskConfirm = 26,
+
+    /// <summary>
+    /// Изменить роль пользователя
+    /// </summary>
+    [CallbackCode("ur")]
+    UserChangeRole = 27,
+
+    /// <summary>
+    /// Обновить соединения (синхронизация с WireGuard API)
+    /// </summary>
+    [CallbackCode("rc")]
+    RefreshConnections = 28,
+
+    /// <summary>
+    /// Обновить соединения (синхронизация с WireGuard API)
+    /// </summary>
+    [CallbackCode("uf")]
+    UserDeleteConfirm = 29,
+
+    /// <summary>
+    /// Добавить соединение пользователю (выбор конкретного соединения)
+    /// </summary>
+    [CallbackCode("ub")]
+    UserAddConnectionSelect = 30,
+
+    /// <summary>
+    /// Разорвать связь пользователь↔соединение (WireGuardUsers)
+    /// </summary>
+    [CallbackCode("ux")]
+    UserUnlinkConnection = 31,
+
+    /// <summary>
+    /// Обновить конфиг (выбор способа применения)
+    /// </summary>
+    [CallbackCode("cf")]
+    RefreshConfigAsk = 32,
+
+    /// <summary>
+    /// Обновить конфиг: мягко (wg syncconf)
+    /// </summary>
+    [CallbackCode("cs")]
+    RefreshConfigSoft = 33,
+
+    /// <summary>
+    /// Обновить конфиг: жёстко (wg-quick down/up)
+    /// </summary>
+    [CallbackCode("ch")]
+    RefreshConfigHard = 34,
+
+    #endregion
 }

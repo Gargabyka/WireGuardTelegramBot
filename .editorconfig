@@ -32,6 +32,7 @@ dotnet_diagnostic.SA1009.severity = none #
 dotnet_diagnostic.SA1118.severity = none # Разрешить мультистрочный текст
 dotnet_diagnostic.SA1010.severity = none # Разрешить пробел после = []
 dotnet_diagnostic.SA0001.severity = none # Разрешить не документировать код
+dotnet_diagnostic.SA1027.severity = none # Разрешить пробелы у кода (    int a = 1)
 
 # Глушим обязательное прокидывание культуры в методы типа ToString
 dotnet_diagnostic.ca1304.severity = suggestion # в char.ToUpper
@@ -66,3 +67,7 @@ resharper_csharp_wrap_arguments_style = chop_if_long
 
 [Host/Program.cs]
 dotnet_diagnostic.SA1516.severity = none
+
+# Отключаем StyleCop для EF Core миграций (универсально)
+[**/Migrations/**/*.cs]
+dotnet_analyzer_diagnostic.severity = none
