@@ -26,12 +26,19 @@ public sealed class DockerWireguardService : IWireguardService
 			: ApplyConfigWithDownUpAsync(cancellationToken);
 
 	public Task ApplyConfigWithSyncConfAsync(CancellationToken cancellationToken)
-		=> RunHelperAsync(["sh", "-lc", $"wg-quick strip {_wg.InterfaceName} | wg syncconf {_wg.InterfaceName} /dev/stdin"], cancellationToken);
+	{
+		// Без process substitution: делаем temp file внутри контейнера
+		var cmd = $"wg-quick strip {_wg.InterfaceName} > /tmp/stripped.conf && wg syncconf {_wg.InterfaceName} /tmp/stripped.conf";
+		return ExecInTargetContainerAsync(["sh", "-lc", cmd], cancellationToken);
+	}
 
 	public Task ApplyConfigWithDownUpAsync(CancellationToken cancellationToken)
-		=> RunHelperAsync(["sh", "-lc", $"wg-quick down {_wg.InterfaceName} || true && wg-quick up {_wg.InterfaceName}"], cancellationToken);
+	{
+		var cmd = $"wg-quick down {_wg.InterfaceName} || true; wg-quick up {_wg.InterfaceName}";
+		return ExecInTargetContainerAsync(["sh", "-lc", cmd], cancellationToken);
+	}
 
-	private async Task RunHelperAsync(string[] cmd, CancellationToken cancellationToken)
+	private async Task ExecInTargetContainerAsync(string[] cmd, CancellationToken cancellationToken)
 	{
 		if (!_docker.Enabled)
 		{
@@ -40,77 +47,84 @@ public sealed class DockerWireguardService : IWireguardService
 
 		using var http = CreateDockerHttpClient(_docker.DockerSocketPath);
 
-		// 1) ensure image (pull при необходимости)
-		await EnsureImageAsync(http, _docker.Image, cancellationToken);
-
-		// 2) create container
-		var containerName = $"wg-helper-{Guid.NewGuid():N}";
-
-		var createBody = new
+		// 1) Найдём контейнер по имени
+		var containerId = await FindContainerIdByNameAsync(http, _docker.TargetContainerName, cancellationToken);
+		if (containerId is null)
 		{
-			_docker.Image,
-			Cmd = cmd,
-			HostConfig = new
-			{
-				NetworkMode = "host",
-				CapAdd = new[] { "NET_ADMIN" },
-				Binds = new[]
-				{
-					$"{_docker.HostWireGuardDir}:/etc/wireguard:rw",
-				},
-			},
+			throw new InvalidOperationException($"Не найден контейнер '{_docker.TargetContainerName}'. Проверьте container_name в docker-compose.");
+		}
+
+		// 2) Создаём exec
+		var execCreate = new
+		{
+			AttachStdout = false,
+			AttachStderr = false,
+			Tty = false,
+			Cmd = cmd
 		};
 
-		var createResp = await http.PostAsJsonAsync(
-			$"containers/create?name={Uri.EscapeDataString(containerName)}",
-			createBody,
-			cancellationToken);
+		var execCreateResp = await http.PostAsJsonAsync($"containers/{containerId}/exec", execCreate, cancellationToken);
+		execCreateResp.EnsureSuccessStatusCode();
 
-		createResp.EnsureSuccessStatusCode();
-
-		var createJson = await createResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cancellationToken);
-		var id = createJson.GetProperty("Id").GetString();
-		if (string.IsNullOrWhiteSpace(id))
+		var execCreateJson = await execCreateResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cancellationToken);
+		var execId = execCreateJson.GetProperty("Id").GetString();
+		if (string.IsNullOrWhiteSpace(execId))
 		{
-			throw new InvalidOperationException("Docker: container id is empty.");
+			throw new InvalidOperationException("Docker exec: empty exec id.");
 		}
 
-		try
+		// 3) Запускаем exec (detach) и ждём завершения через inspect
+		var execStart = new { Detach = true, Tty = false };
+		var execStartResp = await http.PostAsJsonAsync($"exec/{execId}/start", execStart, cancellationToken);
+		execStartResp.EnsureSuccessStatusCode();
+
+		// 4) Poll inspect до завершения
+		while (true)
 		{
-			// 3) start
-			var startResp = await http.PostAsync($"containers/{id}/start", content: null, cancellationToken);
-			startResp.EnsureSuccessStatusCode();
+			cancellationToken.ThrowIfCancellationRequested();
 
-			// 4) wait
-			var waitResp = await http.PostAsync($"containers/{id}/wait", content: null, cancellationToken);
-			waitResp.EnsureSuccessStatusCode();
-
-			var waitJson = await waitResp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: cancellationToken);
-			var statusCode = waitJson.GetProperty("StatusCode").GetInt32();
-
-			// 5) logs
-			var logs = await http.GetStringAsync($"containers/{id}/logs?stdout=1&stderr=1", cancellationToken);
-
-			if (statusCode != 0)
+			var inspect = await http.GetFromJsonAsync<JsonElement>($"exec/{execId}/json", cancellationToken);
+			var running = inspect.GetProperty("Running").GetBoolean();
+			if (!running)
 			{
-				throw new InvalidOperationException($"WireGuard apply failed (exit={statusCode}). Logs: {logs}");
+				var exitCode = inspect.TryGetProperty("ExitCode", out var ec) ? ec.GetInt32() : -1;
+				if (exitCode != 0)
+				{
+					throw new InvalidOperationException($"Команда WireGuard внутри '{_docker.TargetContainerName}' завершилась с кодом {exitCode}.");
+				}
+
+				return;
 			}
-		}
-		finally
-		{
-			// remove container
-			try
-			{
-				await http.DeleteAsync($"containers/{id}?force=true&v=true", cancellationToken);
-			}
-			catch
-			{
-				// ignore cleanup issues
-			}
+
+			await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
 		}
 	}
 
-	private HttpClient CreateDockerHttpClient(string socketPath)
+	private static async Task<string?> FindContainerIdByNameAsync(HttpClient http, string name, CancellationToken cancellationToken)
+	{
+		// Docker API: /containers/json возвращает список с Names: ["/wg-easy"]
+		var containers = await http.GetFromJsonAsync<JsonElement>("containers/json?all=1", cancellationToken);
+		foreach (var c in containers.EnumerateArray())
+		{
+			if (!c.TryGetProperty("Names", out var names))
+			{
+				continue;
+			}
+
+			foreach (var n in names.EnumerateArray())
+			{
+				var s = n.GetString();
+				if (string.Equals(s, "/" + name, StringComparison.Ordinal))
+				{
+					return c.GetProperty("Id").GetString();
+				}
+			}
+		}
+
+		return null;
+	}
+
+	private static HttpClient CreateDockerHttpClient(string socketPath)
 	{
 		var handler = new SocketsHttpHandler
 		{
@@ -125,16 +139,7 @@ public sealed class DockerWireguardService : IWireguardService
 
 		return new HttpClient(handler)
 		{
-			BaseAddress = new Uri("http://localhost/v1.41/"), // версия API Docker
+			BaseAddress = new Uri("http://localhost/v1.41/"),
 		};
-	}
-
-	private async Task EnsureImageAsync(HttpClient http, string image, CancellationToken cancellationToken)
-	{
-		// Если образа нет — делаем pull. Для простоты: всегда дергаем pull; Docker сам закэширует.
-		// image может быть "repo:tag"
-		var pullUrl = $"images/create?fromImage={Uri.EscapeDataString(image)}";
-		var resp = await http.PostAsync(pullUrl, content: null, cancellationToken);
-		resp.EnsureSuccessStatusCode();
 	}
 }

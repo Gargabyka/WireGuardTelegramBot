@@ -8,17 +8,12 @@ public sealed class DockerWireGuardRunnerOptions
 	public bool Enabled { get; init; }
 
 	/// <summary>
-	/// Образ, в котором есть wg и wg-quick.
-	/// </summary>
-	public string Image { get; init; } = "ghcr.io/linuxserver/wireguard:latest";
-
-	/// <summary>
 	/// Путь к сокету Docker внутри контейнера приложения.
 	/// </summary>
 	public string DockerSocketPath { get; init; } = "/var/run/docker.sock";
 
 	/// <summary>
-	/// Путь к wireguard конфигам на хосте, который будет примонтирован в helper.
+	/// Имя контейнера, внутри которого нужно выполнять wg/wg-quick (например, wg-easy).
 	/// </summary>
-	public string HostWireGuardDir { get; init; } = "/etc/wireguard";
+	public string TargetContainerName { get; init; } = "wg-easy";
 }
