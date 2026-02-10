@@ -25,3 +25,10 @@ artifacts/
 
 #Database
 *.db
+
+# local databases
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+Host/wireguard_bot.db
+data/
