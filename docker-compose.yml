@@ -1,7 +1,6 @@
 services:
   wireguard-bot:
     build: .
-    network: host
     container_name: wireguard-bot
     restart: unless-stopped
 
