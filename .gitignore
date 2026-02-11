@@ -32,3 +32,6 @@ artifacts/
 **/*.sqlite3
 Host/wireguard_bot.db
 data/
+
+#Env
+*.prod.env
