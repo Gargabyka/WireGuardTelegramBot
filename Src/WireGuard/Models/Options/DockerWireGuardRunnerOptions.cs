@@ -1,4 +1,4 @@
-﻿namespace WireGuard.Models;
+﻿namespace WireGuard.Models.Options;
 
 public sealed class DockerWireGuardRunnerOptions
 {

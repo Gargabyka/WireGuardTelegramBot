@@ -1,7 +1,7 @@
 ﻿using System.Net;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using WireGuard.Models;
+using WireGuard.Models.Options;
 using WireGuard.Services;
 using WireGuard.Services.Interface;
 
@@ -21,20 +21,11 @@ public static class DiContainerExtensions
 			.Bind(configuration.GetSection("WireGuard"))
 			.ValidateOnStart();
 
-		services.AddOptions<DockerWireGuardRunnerOptions>()
-			.Bind(configuration.GetSection("WireGuardDocker"))
+		services.AddOptions<WireGuardSshOptions>()
+			.Bind(configuration.GetSection("WireGuardSsh"))
 			.ValidateOnStart();
 
-		services.AddScoped<IWireguardService>(sp =>
-		{
-			var docker = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<DockerWireGuardRunnerOptions>>().Value;
-			if (docker.Enabled)
-			{
-				return ActivatorUtilities.CreateInstance<DockerWireguardService>(sp);
-			}
-
-			return ActivatorUtilities.CreateInstance<WireGuardService>(sp);
-		});
+		services.AddScoped<IWireguardService, SshWireguardService>();
 
 		services.AddHttpClient<IWireGuardApiService, WireGuardApiService>((sp, client) =>
 			{

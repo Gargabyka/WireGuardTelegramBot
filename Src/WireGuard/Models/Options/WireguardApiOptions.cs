@@ -1,4 +1,4 @@
-﻿namespace WireGuard.Models;
+﻿namespace WireGuard.Models.Options;
 
 /// <summary>
 /// Класс опций WireGuard

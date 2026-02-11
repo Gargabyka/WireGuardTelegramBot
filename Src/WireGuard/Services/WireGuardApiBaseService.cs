@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using WireGuard.Models;
+using WireGuard.Models.Options;
 using WireGuard.Models.Request;
 
 namespace WireGuard.Services;

@@ -69,9 +69,9 @@ public sealed class AdminPanelTelegramCallbackHandler : TelegramAdminCallbackHan
 			CallbackEvent: TelegramCallbackEvent.RefreshConnections,
 			SourceEvent: TelegramCallbackEvent.AdminPanel);
 
-		var refreshConfigAskRequest = new TelegramRequest(
+		var refreshConfigRequest = new TelegramRequest(
 			Id: Guid.Empty,
-			CallbackEvent: TelegramCallbackEvent.RefreshConfigAsk,
+			CallbackEvent: TelegramCallbackEvent.RefreshConfigHard,
 			SourceEvent: TelegramCallbackEvent.AdminPanel);
 
 		var markup = new InlineKeyboardMarkup(
@@ -89,7 +89,7 @@ public sealed class AdminPanelTelegramCallbackHandler : TelegramAdminCallbackHan
 				InlineKeyboardButton.WithCallbackData("🔄 Обновить соединения", TelegramCallbackDataCodec.Encode(refreshConnectionsRequest)),
 			],
 			[
-				InlineKeyboardButton.WithCallbackData("♻ Обновить конфиг", TelegramCallbackDataCodec.Encode(refreshConfigAskRequest)),
+				InlineKeyboardButton.WithCallbackData("♻ Обновить конфиг", TelegramCallbackDataCodec.Encode(refreshConfigRequest)),
 			],
 			[
 				InlineKeyboardButton.WithCallbackData("⬅️ Назад", TelegramCallbackDataCodec.Encode(backRequest))
