@@ -42,7 +42,7 @@ public class DownloadConfigTelegramCallbackHandler : TelegramCallbackHandlerBase
         await using var ms = new MemoryStream(document, writable: false);
         ms.Position = 0;
 
-        var inputFile = InputFile.FromStream(ms, fileName: "vpn.config");
+        var inputFile = InputFile.FromStream(ms, fileName: "vpn.conf");
         var configName = await GetConfigName(request.Id, cancellationToken);
 
         await _telegramBot.SendDocument(
