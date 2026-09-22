@@ -15,8 +15,8 @@ public class WireGuardApiService : WireGuardApiBaseService, IWireGuardApiService
         PropertyNameCaseInsensitive = true,
     };
 
-    public WireGuardApiService(HttpClient httpClient, IOptions<WireguardApiOptions> options)
-        : base(httpClient, options)
+    public WireGuardApiService(HttpClient httpClient, IOptions<WireguardApiOptions> wireGuardOptions)
+        : base(httpClient, wireGuardOptions)
     {
     }
 
@@ -58,6 +58,20 @@ public class WireGuardApiService : WireGuardApiBaseService, IWireGuardApiService
             {
                 Content = new StringContent(JsonSerializer.Serialize(authRequest), Encoding.UTF8, "application/json"),
             },
+            cancellationToken);
+    }
+
+    public async Task EnableClientAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var responseMessage = await SendWithAuthRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, $"/api/wireguard/client/{id}/enable"),
+            cancellationToken);
+    }
+
+    public async Task DisableClientAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var responseMessage = await SendWithAuthRetryAsync(
+            () => new HttpRequestMessage(HttpMethod.Post, $"/api/wireguard/client/{id}/disable"),
             cancellationToken);
     }
 }

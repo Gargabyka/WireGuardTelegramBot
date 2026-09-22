@@ -69,9 +69,41 @@ public sealed class UserDeleteAskConfirmTelegramCallbackHandler : TelegramAdminC
 		var user = await repo.GetUserByTelegramIdAsync(telegramId, cancellationToken);
 		if (user is null)
 		{
-			// ... existing code ...
+			var backMissing = BackTo(TelegramCallbackEvent.UserList, sourceEvent: TelegramCallbackEvent.AdminPanel);
+
+			await _bot.SendMessage(
+				chatId: chatId,
+				text: "Пользователь не найден (возможно, уже удалён).",
+				replyMarkup: new InlineKeyboardMarkup(
+					InlineKeyboardButton.WithCallbackData("⬅ Назад", Encode(backMissing))),
+				cancellationToken: cancellationToken);
+
+			await AnswerAsync(update, cancellationToken);
+			return;
 		}
 
-		// ... existing code ...
+		var confirmRequest = WithEvent(request, TelegramCallbackEvent.UserDeleteConfirm, sourceEvent: TelegramCallbackEvent.UserDeleteAskConfirm);
+		var backToUserInfoRequest = new TelegramRequest(
+			Id: request.Id,
+			CallbackEvent: TelegramCallbackEvent.UserInfo,
+			SourceEvent: TelegramCallbackEvent.UserDeleteAskConfirm);
+
+		var markup = new InlineKeyboardMarkup(
+		[
+			[
+				InlineKeyboardButton.WithCallbackData("✅ Да, удалить", Encode(confirmRequest))
+			],
+			[
+				InlineKeyboardButton.WithCallbackData("⬅ Назад", Encode(backToUserInfoRequest))
+			]
+		]);
+
+		await _bot.SendMessage(
+			chatId: chatId,
+			text: "Точно удалить этого пользователя? Действие необратимо.",
+			replyMarkup: markup,
+			cancellationToken: cancellationToken);
+
+		await AnswerAsync(update, cancellationToken);
 	}
 }

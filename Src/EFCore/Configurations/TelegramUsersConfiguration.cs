@@ -37,5 +37,11 @@ public sealed class TelegramUsersConfiguration : IEntityTypeConfiguration<Telegr
 		builder.Property(x => x.CreatedAt)
 			.HasConversion(dateOnlyConverter)
 			.IsRequired();
+
+		builder.Property(x => x.ReminderOptOut)
+			.IsRequired()
+			.HasDefaultValue(false);
+
+		builder.Property(x => x.MaxConnections);
 	}
 }

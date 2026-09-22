@@ -71,6 +71,8 @@ public sealed class UserInfoTelegramCallbackHandler : TelegramAdminCallbackHandl
                    TelegramId: {user.TelegramId}
                    Роль: {user.Role.GetDescription()}
                    Добавлен: {user.CreatedAt:yyyy-MM-dd}
+                   Напоминания об оплате: {(user.ReminderOptOut ? "🔕 отключены" : "🔔 включены")}
+                   Лимит соединений: {(user.MaxConnections.HasValue ? user.MaxConnections.Value.ToString() : "без ограничений")}
                    """;
 
         var connectionsRequest = new TelegramRequest(
@@ -93,6 +95,16 @@ public sealed class UserInfoTelegramCallbackHandler : TelegramAdminCallbackHandl
             CallbackEvent: TelegramCallbackEvent.UserDeleteAskConfirm,
             SourceEvent: TelegramCallbackEvent.UserInfo);
 
+        var toggleReminderRequest = new TelegramRequest(
+            Id: request.Id,
+            CallbackEvent: TelegramCallbackEvent.UserToggleReminderOptOut,
+            SourceEvent: TelegramCallbackEvent.UserInfo);
+
+        var changeLimitRequest = new TelegramRequest(
+            Id: request.Id,
+            CallbackEvent: TelegramCallbackEvent.UserChangeConnectionLimit,
+            SourceEvent: TelegramCallbackEvent.UserInfo);
+
         var back = BackTo(TelegramCallbackEvent.UserList, sourceEvent: TelegramCallbackEvent.AdminPanel);
 
         var markup = new InlineKeyboardMarkup([
@@ -104,6 +116,14 @@ public sealed class UserInfoTelegramCallbackHandler : TelegramAdminCallbackHandl
             ],
             [
                 InlineKeyboardButton.WithCallbackData("👤 Изменить роль", Encode(changeRoleRequest)),
+            ],
+            [
+                InlineKeyboardButton.WithCallbackData("🔢 Изменить лимит соединений", Encode(changeLimitRequest)),
+            ],
+            [
+                InlineKeyboardButton.WithCallbackData(
+                    user.ReminderOptOut ? "🔔 Включить напоминания" : "🔕 Отключить напоминания",
+                    Encode(toggleReminderRequest)),
             ],
             [
                 InlineKeyboardButton.WithCallbackData("🗑 Удалить пользователя", Encode(deleteUserRequest)),

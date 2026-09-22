@@ -45,11 +45,23 @@ public class TelegramUser : IEntity
     public DateOnly CreatedAt { get; init; }
 
     /// <summary>
+    /// Не присылать напоминания об оплате хостинга
+    /// </summary>
+    public bool ReminderOptOut { get; set; }
+
+    /// <summary>
+    /// Максимальное количество соединений (peer'ов), которое пользователь может завести себе сам.
+    /// null — без ограничений.
+    /// </summary>
+    public int? MaxConnections { get; set; }
+
+    /// <summary>
     /// Добавить пользователя Telegram
     /// </summary>
     /// <param name="userModel">Модель пользователя</param>
+    /// <param name="defaultMaxConnections">Лимит соединений по умолчанию для нового пользователя (null — без ограничений)</param>
     /// <returns>Пользователь телеграм</returns>
-    public static TelegramUser Create(AddUserModel userModel)
+    public static TelegramUser Create(AddUserModel userModel, int? defaultMaxConnections = null)
     {
 	    return new TelegramUser
 	    {
@@ -59,6 +71,7 @@ public class TelegramUser : IEntity
 		    UserName = userModel.UserName,
 		    Role = UserRole.User,
 		    CreatedAt = DateOnly.FromDateTime(DateTime.UtcNow),
+		    MaxConnections = defaultMaxConnections,
 	    };
     }
 

@@ -23,12 +23,13 @@ public sealed class TelegramUserService
 	/// Добавить пользователя
 	/// </summary>
 	/// <param name="userModel">Модель пользователя</param>
+	/// <param name="defaultConnectionLimit">Лимит соединений по умолчанию для нового пользователя (null — без ограничений)</param>
 	/// <param name="cancellationToken">Токен отмены</param>
 	/// <returns>
 	/// True - пользователь успешно создан
 	/// False - не удалось создать пользователя
 	/// </returns>
-	public async Task<bool> TryAddUserAsync(AddUserModel userModel, CancellationToken cancellationToken)
+	public async Task<bool> TryAddUserAsync(AddUserModel userModel, int? defaultConnectionLimit, CancellationToken cancellationToken)
 	{
 		var user = await _telegramUserRepository.GetUserByTelegramIdAsync(userModel.TelegramId, cancellationToken);
 		if (user is not null)
@@ -36,7 +37,7 @@ public sealed class TelegramUserService
 			return false;
 		}
 
-		_telegramUserRepository.Add(TelegramUser.Create(userModel));
+		_telegramUserRepository.Add(TelegramUser.Create(userModel, defaultConnectionLimit));
 
 		await _unitOfWork.SaveChangesAsync(cancellationToken);
 		return true;

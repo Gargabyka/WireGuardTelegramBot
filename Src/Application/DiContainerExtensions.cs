@@ -12,6 +12,8 @@ public static class DiContainerExtensions
 		services.AddScoped<ITelegramUserRepository, TelegramUserRepository>();
 		services.AddScoped<IWireGuardPeerRepository, WireGuardPeerRepository>();
 		services.AddScoped<IWireGuardUserRepository, WireGuardUserRepository>();
+		services.AddScoped<IHostingReminderStateRepository, HostingReminderStateRepository>();
+		services.AddScoped<IWireGuardTrafficSnapshotRepository, WireGuardTrafficSnapshotRepository>();
 		services.AddScoped<TelegramUserService>();
 	}
 }

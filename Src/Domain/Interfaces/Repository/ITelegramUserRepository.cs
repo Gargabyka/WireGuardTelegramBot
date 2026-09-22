@@ -33,6 +33,14 @@ public interface ITelegramUserRepository
 	public Task<TelegramUser?> GetUserByTelegramIdForUpdateAsync(long telegramId, CancellationToken cancellationToken);
 
 	/// <summary>
+	/// Получить пользователей, которым можно присылать напоминания об оплате хостинга
+	/// </summary>
+	/// <param name="cancellationToken">Токен отмены</param>
+	/// <returns>Возвращает пользователей, не отключивших напоминания</returns>
+	/// <remarks>Недоступен для редактирования (AsNoTracking)</remarks>
+	public Task<TelegramUser[]> GetUsersForReminderAsync(CancellationToken cancellationToken);
+
+	/// <summary>
 	/// Добавить пользователя в контекст (для последующего SaveChanges)
 	/// </summary>
 	/// <param name="user">Пользователь</param>

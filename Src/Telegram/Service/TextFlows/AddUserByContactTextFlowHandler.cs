@@ -1,9 +1,11 @@
 ﻿using Application.Services.Interfaces;
 using Domain.Models;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
+using Telegram.Models;
 using Telegram.Service.Interface;
 using Telegram.Store.Interfaces;
 
@@ -13,11 +15,16 @@ public sealed class AddUserByContactTextFlowHandler : ITelegramTextFlowHandler
 {
     private readonly ITelegramBotClient _bot;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly TelegramOptions _telegramOptions;
 
-    public AddUserByContactTextFlowHandler(ITelegramBotClient bot, IServiceScopeFactory scopeFactory)
+    public AddUserByContactTextFlowHandler(
+        ITelegramBotClient bot,
+        IOptions<TelegramOptions> telegramOptions,
+        IServiceScopeFactory scopeFactory)
     {
         _bot = bot;
         _scopeFactory = scopeFactory;
+        _telegramOptions = telegramOptions.Value;
     }
 
     public async Task<bool> TryHandleAsync(Update update, CancellationToken cancellationToken)
@@ -84,6 +91,7 @@ public sealed class AddUserByContactTextFlowHandler : ITelegramTextFlowHandler
                 FirstName: contact.FirstName,
                 LastName: contact.LastName,
                 UserName: null),
+            _telegramOptions.DefaultConnectionLimit,
             cancellationToken);
 
         store.Clear(chatId);

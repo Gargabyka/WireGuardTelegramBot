@@ -21,6 +21,7 @@ public class TelegramUpdateFactory
         return command switch
         {
             "/start" => _serviceProvider.GetRequiredService<StartTelegramUpdateHandler>(),
+            "/status" => _serviceProvider.GetRequiredService<StatusTelegramUpdateHandler>(),
             _ => throw new ArgumentException()
         };
     }

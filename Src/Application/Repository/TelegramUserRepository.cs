@@ -31,6 +31,13 @@ public class TelegramUserRepository : ITelegramUserRepository
 			.TelegramUsers
 			.FirstOrDefaultAsync(x => x.TelegramId == telegramId, cancellationToken);
 
+	public Task<TelegramUser[]> GetUsersForReminderAsync(CancellationToken cancellationToken)
+		=> _dbContext
+			.TelegramUsers
+			.AsNoTracking()
+			.Where(x => !x.ReminderOptOut)
+			.ToArrayAsync(cancellationToken);
+
 	public void Add(TelegramUser user)
 		=> _dbContext.TelegramUsers.Add(user);
 

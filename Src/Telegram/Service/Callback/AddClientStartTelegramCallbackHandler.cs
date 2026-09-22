@@ -1,4 +1,6 @@
-﻿using JetBrains.Annotations;
+﻿using Domain.Interfaces.Repository;
+using JetBrains.Annotations;
+using Microsoft.Extensions.DependencyInjection;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -16,14 +18,17 @@ public class AddClientStartTelegramCallbackHandler : TelegramCallbackHandlerBase
 {
     private readonly IAddClientStateStore _addClientState;
     private readonly ITelegramBotClient _telegramBot;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public AddClientStartTelegramCallbackHandler(
         ITelegramBotClient telegramBot,
-        IAddClientStateStore addClientState)
+        IAddClientStateStore addClientState,
+        IServiceScopeFactory scopeFactory)
         : base(telegramBot)
     {
         _telegramBot = telegramBot;
         _addClientState = addClientState;
+        _scopeFactory = scopeFactory;
     }
 
     public override TelegramCallbackEvent CallbackEvent => TelegramCallbackEvent.AddClient;
@@ -33,6 +38,28 @@ public class AddClientStartTelegramCallbackHandler : TelegramCallbackHandlerBase
         var (chatId, _, _) = GetCallbackContext(update);
 
         await TryDeleteOriginMessageAsync(update, cancellationToken);
+
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var telegramUserRepo = scope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
+            var wgUserRepo = scope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
+
+            var user = await telegramUserRepo.GetUserByTelegramIdAsync(chatId, cancellationToken);
+            if (user?.MaxConnections is { } limit)
+            {
+                var currentCount = (await wgUserRepo.GetConnectionsByTelegramIdAsync(user.Id, cancellationToken)).Length;
+                if (currentCount >= limit)
+                {
+                    await _telegramBot.SendMessage(
+                        chatId: chatId,
+                        text: $"Достигнут лимит соединений: {currentCount}/{limit}. Обратитесь к администратору, чтобы увеличить лимит.",
+                        cancellationToken: cancellationToken);
+
+                    await AnswerAsync(update, cancellationToken);
+                    return;
+                }
+            }
+        }
 
         _addClientState.Begin(chatId);
 

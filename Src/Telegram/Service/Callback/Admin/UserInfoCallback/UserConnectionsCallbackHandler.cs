@@ -8,6 +8,8 @@ using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Common.Helper;
 using Telegram.Enums;
 using Telegram.Models;
+using WireGuard.Models;
+using WireGuard.Services.Interface;
 
 namespace Telegram.Service.Callback.Admin.UserInfoCallback;
 
@@ -17,15 +19,18 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 	private const int PageSize = 9;
 
 	private readonly ITelegramBotClient _bot;
+	private readonly IWireGuardApiService _wireGuardApiService;
 	private readonly IServiceScopeFactory _scopeFactory;
 
 	public UserConnectionsCallbackHandler(
 		ITelegramBotClient telegramBot,
+		IWireGuardApiService wireGuardApiService,
 		IOptions<TelegramOptions> telegramOptions,
 		IServiceScopeFactory scopeFactory)
 		: base(telegramBot, telegramOptions, scopeFactory)
 	{
 		_bot = telegramBot;
+		_wireGuardApiService = wireGuardApiService;
 		_scopeFactory = scopeFactory;
 	}
 
@@ -93,6 +98,18 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 			.OrderByDescending(x => x.Peer.CreatedAt)
 			.ToArray();
 
+		// Трафик берём live из WireGuard API — если он недоступен, просто не показываем статистику
+		Dictionary<Guid, WireguardClients> clientsByWireGuardId = [];
+		try
+		{
+			var clients = await _wireGuardApiService.GetWireguardClients(cancellationToken) ?? [];
+			clientsByWireGuardId = clients.ToDictionary(x => x.Id);
+		}
+		catch (Exception)
+		{
+			// покажем список без статистики трафика
+		}
+
 		var totalPages = (int)Math.Ceiling(ordered.Length / (double)PageSize);
 
 		var page = request.Page;
@@ -111,7 +128,18 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 			.Take(PageSize)
 			.ToArray();
 
-		var rows = BuildPeerRows(pageConnections, request.Id, page);
+		var rows = BuildPeerRows(pageConnections, request.Id, page, clientsByWireGuardId);
+
+		// Общий трафик считаем по снимкам (переживают рестарт интерфейса WireGuard на сервере),
+		// а не по живым счётчикам API — иначе после рестарта тут показывался бы 0 вместо реальной суммы.
+		var snapshotRepo = scope.ServiceProvider.GetRequiredService<IWireGuardTrafficSnapshotRepository>();
+		long totalBytes = 0;
+		foreach (var connection in ordered)
+		{
+			var snapshots = await snapshotRepo.GetSnapshotsForPeriodAsync(connection.Peer.WireGuardId, sinceUtc: null, cancellationToken);
+			var (rx, tx) = TrafficUsageCalculator.ComputeUsage(snapshots);
+			totalBytes += rx + tx;
+		}
 
 		// Навигация
 		var prevPage = Math.Max(0, page - 1);
@@ -142,9 +170,14 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 
 		rows.Add([InlineKeyboardButton.WithCallbackData("⬅ Назад к пользователю", Encode(backToUserInfo))]);
 
+		var trafficLine = $"Всего использовано трафика: {TrafficFormatter.FormatBytes(totalBytes)}";
+
 		await _bot.SendMessage(
 			chatId: chatId,
-			text: $"Соединения пользователя{userNameSuffix} (нажмите на имя для подробностей):",
+			text: $"""
+			       Соединения пользователя{userNameSuffix} (нажмите на имя для подробностей):
+			       {trafficLine}
+			       """,
 			replyMarkup: new InlineKeyboardMarkup(rows),
 			cancellationToken: cancellationToken);
 
@@ -154,7 +187,8 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 	private static List<InlineKeyboardButton[]> BuildPeerRows(
 		IEnumerable<Domain.Entities.WireGuardUser> connections,
 		Guid userRequestId,
-		int page)
+		int page,
+		IReadOnlyDictionary<Guid, WireguardClients> clientsByWireGuardId)
 	{
 		var rows = new List<InlineKeyboardButton[]>();
 
@@ -162,8 +196,12 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 		{
 			var peer = c.Peer;
 
+			var statusIcon = clientsByWireGuardId.TryGetValue(peer.WireGuardId, out var client)
+				? (client.Enabled ? "🟢 " : "🔴 ")
+				: string.Empty;
+
 			var infoBtn = InlineKeyboardButton.WithCallbackData(
-				text: peer.Name,
+				text: statusIcon + peer.Name,
 				callbackData: TelegramCallbackDataCodec.Encode(
 					new TelegramRequest(
 						Id: peer.WireGuardId,

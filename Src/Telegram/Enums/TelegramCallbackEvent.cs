@@ -153,5 +153,23 @@ public enum TelegramCallbackEvent
     [CallbackCode("ch")]
     RefreshConfigHard = 34,
 
+    /// <summary>
+    /// Включить/выключить напоминания об оплате хостинга для пользователя
+    /// </summary>
+    [CallbackCode("rt")]
+    UserToggleReminderOptOut = 35,
+
+    /// <summary>
+    /// Включить/выключить peer WireGuard
+    /// </summary>
+    [CallbackCode("pt")]
+    TogglePeerEnabled = 36,
+
+    /// <summary>
+    /// Изменить лимит соединений пользователя
+    /// </summary>
+    [CallbackCode("ul2")]
+    UserChangeConnectionLimit = 37,
+
     #endregion
 }

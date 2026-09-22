@@ -16,6 +16,10 @@ public class AppDbContext : DbContext
 
 	public DbSet<WireGuardUser> WireGuardUsers { get; set; }
 
+	public DbSet<HostingReminderState> HostingReminderStates { get; set; }
+
+	public DbSet<WireGuardTrafficSnapshot> WireGuardTrafficSnapshots { get; set; }
+
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{
 		modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

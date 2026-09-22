@@ -32,8 +32,14 @@ public static class DiContainerExtensions
             return new TelegramBotClient(opts.Token);
         });
 
+        services.AddOptions<HostingReminderOptions>()
+            .Bind(configuration.GetSection("HostingReminder"))
+            .ValidateOnStart();
+
         services.AddSingleton<ITelegramHandler, TelegramHandler>();
         services.AddHostedService<TelegramLongPollingService>();
+        services.AddHostedService<HostingReminderBackgroundService>();
+        services.AddHostedService<WireGuardTrafficSnapshotBackgroundService>();
 
         AddTelegramUpdate(services);
         AddTelegramCallback(services);
@@ -45,6 +51,7 @@ public static class DiContainerExtensions
     {
         services.AddSingleton<TelegramUpdateFactory>();
         services.AddTransient<StartTelegramUpdateHandler>();
+        services.AddTransient<StatusTelegramUpdateHandler>();
     }
 
     private static void AddTelegramCallback(IServiceCollection services)

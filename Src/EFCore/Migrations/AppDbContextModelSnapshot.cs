@@ -17,6 +17,25 @@ namespace EFCore.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.2");
 
+            modelBuilder.Entity("Domain.Entities.HostingReminderState", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("LastSentAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RemindersSentCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.ToTable("HostingReminderStates");
+                });
+
             modelBuilder.Entity("Domain.Entities.TelegramUser", b =>
                 {
                     b.Property<int>("Id")
@@ -34,6 +53,14 @@ namespace EFCore.Migrations
                     b.Property<string>("LastName")
                         .HasMaxLength(128)
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("MaxConnections")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ReminderOptOut")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<int>("Role")
                         .HasColumnType("INTEGER");
@@ -90,6 +117,31 @@ namespace EFCore.Migrations
                         .IsUnique();
 
                     b.ToTable("WireGuardPeers");
+                });
+
+            modelBuilder.Entity("Domain.Entities.WireGuardTrafficSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CapturedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("TransferRx")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TransferTx")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("WireGuardId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WireGuardId", "CapturedAtUtc");
+
+                    b.ToTable("WireGuardTrafficSnapshots");
                 });
 
             modelBuilder.Entity("Domain.Entities.WireGuardUser", b =>

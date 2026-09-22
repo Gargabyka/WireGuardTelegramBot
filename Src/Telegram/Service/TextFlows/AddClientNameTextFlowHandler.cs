@@ -68,6 +68,41 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
             return true;
         }
 
+        using (var limitCheckScope = _scopeFactory.CreateScope())
+        {
+            var telegramUserRepo = limitCheckScope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
+            var wgUserRepo = limitCheckScope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
+
+            var currentUser = await telegramUserRepo.GetUserByTelegramIdAsync(chatId, cancellationToken);
+            if (currentUser is null)
+            {
+                _store.Clear(chatId);
+
+                await _bot.SendMessage(
+                    chatId: chatId,
+                    text: $"Не удалось найти пользователя: {chatId}",
+                    cancellationToken: cancellationToken);
+
+                return true;
+            }
+
+            if (currentUser.MaxConnections is { } limit)
+            {
+                var currentCount = (await wgUserRepo.GetConnectionsByTelegramIdAsync(currentUser.Id, cancellationToken)).Length;
+                if (currentCount >= limit)
+                {
+                    _store.Clear(chatId);
+
+                    await _bot.SendMessage(
+                        chatId: chatId,
+                        text: $"Достигнут лимит соединений: {currentCount}/{limit}. Обратитесь к администратору, чтобы увеличить лимит.",
+                        cancellationToken: cancellationToken);
+
+                    return true;
+                }
+            }
+        }
+
         try
         {
             // Проверка дубликатов в WireGuard

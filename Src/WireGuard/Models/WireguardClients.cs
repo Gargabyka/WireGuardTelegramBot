@@ -1,4 +1,4 @@
-﻿namespace WireGuard.Models;
+namespace WireGuard.Models;
 
 /// <summary>
 /// Клиенты WireGuard
@@ -9,4 +9,16 @@
 /// <param name="Address">Id адрес</param>
 /// <param name="PublicKey">Публичный ключ</param>
 /// <param name="CreatedAt">Дата создания</param>
-public record WireguardClients(Guid Id, string Name, bool Enabled, string Address, string PublicKey, DateTimeOffset CreatedAt);
+/// <param name="LatestHandshakeAt">Дата последнего подключения (null — ни разу не подключался)</param>
+/// <param name="TransferRx">Байт получено сервером от клиента</param>
+/// <param name="TransferTx">Байт отправлено сервером клиенту</param>
+public record WireguardClients(
+    Guid Id,
+    string Name,
+    bool Enabled,
+    string Address,
+    string PublicKey,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? LatestHandshakeAt,
+    long TransferRx,
+    long TransferTx);

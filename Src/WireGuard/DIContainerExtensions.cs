@@ -21,12 +21,6 @@ public static class DiContainerExtensions
 			.Bind(configuration.GetSection("WireGuard"))
 			.ValidateOnStart();
 
-		services.AddOptions<WireGuardSshOptions>()
-			.Bind(configuration.GetSection("WireGuardSsh"))
-			.ValidateOnStart();
-
-		services.AddScoped<IWireguardService, SshWireguardService>();
-
 		services.AddHttpClient<IWireGuardApiService, WireGuardApiService>((sp, client) =>
 			{
 				var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<WireguardApiOptions>>().Value;

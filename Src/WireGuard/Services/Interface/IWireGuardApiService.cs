@@ -35,4 +35,18 @@ public interface IWireGuardApiService
     /// <param name="name">Имя клиента</param>
     /// <param name="cancellationToken">Токен отмены</param>
     public Task AddClientAsync(string name, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Включить клиента WireGuard
+    /// </summary>
+    /// <param name="id">Идентификатор клиента</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    public Task EnableClientAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Отключить клиента WireGuard
+    /// </summary>
+    /// <param name="id">Идентификатор клиента</param>
+    /// <param name="cancellationToken">Токен отмены</param>
+    public Task DisableClientAsync(Guid id, CancellationToken cancellationToken);
 }
