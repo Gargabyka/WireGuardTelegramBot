@@ -2,7 +2,7 @@ using Application;
 using EFCore;
 using Microsoft.EntityFrameworkCore;
 using Telegram;
-using WireGuard;
+using XUi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +15,7 @@ if (builder.Environment.IsDevelopment())
 }
 
 builder.Services.AddTelegramConfiguration(builder.Configuration);
-builder.Services.AddWireguardConfiguration(builder.Configuration);
+builder.Services.AddXUiConfiguration(builder.Configuration);
 builder.Services.AddEfCoreConfiguration(builder.Configuration);
 builder.Services.AddApplicationConfiguration();
 

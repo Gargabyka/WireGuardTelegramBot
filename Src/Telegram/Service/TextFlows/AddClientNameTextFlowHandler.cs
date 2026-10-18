@@ -11,7 +11,7 @@ using Telegram.Enums;
 using Telegram.Models;
 using Telegram.Service.Interface;
 using Telegram.Store.Interfaces;
-using WireGuard.Services.Interface;
+using XUi.Services.Interface;
 
 namespace Telegram.Service.TextFlows;
 
@@ -19,18 +19,18 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
 {
     private readonly ITelegramBotClient _bot;
     private readonly IAddClientStateStore _store;
-    private readonly IWireGuardApiService _wireGuardApi;
+    private readonly IXUiApiService _xuiApi;
     private readonly IServiceScopeFactory _scopeFactory;
 
     public AddClientNameTextFlowHandler(
         ITelegramBotClient bot,
         IAddClientStateStore store,
-        IWireGuardApiService wireGuardApi,
+        IXUiApiService xuiApi,
         IServiceScopeFactory scopeFactory)
     {
         _bot = bot;
         _store = store;
-        _wireGuardApi = wireGuardApi;
+        _xuiApi = xuiApi;
         _scopeFactory = scopeFactory;
     }
 
@@ -71,7 +71,7 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
         using (var limitCheckScope = _scopeFactory.CreateScope())
         {
             var telegramUserRepo = limitCheckScope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
-            var wgUserRepo = limitCheckScope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
+            var vpnUserRepo = limitCheckScope.ServiceProvider.GetRequiredService<IVpnUserRepository>();
 
             var currentUser = await telegramUserRepo.GetUserByTelegramIdAsync(chatId, cancellationToken);
             if (currentUser is null)
@@ -88,7 +88,7 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
 
             if (currentUser.MaxConnections is { } limit)
             {
-                var currentCount = (await wgUserRepo.GetConnectionsByTelegramIdAsync(currentUser.Id, cancellationToken)).Length;
+                var currentCount = (await vpnUserRepo.GetConnectionsByTelegramIdAsync(currentUser.Id, cancellationToken)).Length;
                 if (currentCount >= limit)
                 {
                     _store.Clear(chatId);
@@ -105,8 +105,8 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
 
         try
         {
-            // Проверка дубликатов в WireGuard
-            var clients = await _wireGuardApi.GetWireguardClients(cancellationToken);
+            // Проверка дубликатов в 3x-ui
+            var clients = await _xuiApi.GetClients(cancellationToken);
             if (clients is not null && clients.Any(c => string.Equals(c.Name, clientName, StringComparison.OrdinalIgnoreCase)))
             {
                 await _bot.SendMessage(
@@ -116,11 +116,11 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
                 return true;
             }
 
-            // Создаём в WireGuard
-            await _wireGuardApi.AddClientAsync(clientName, cancellationToken);
+            // Создаём в 3x-ui
+            await _xuiApi.AddClientAsync(clientName, cancellationToken);
 
             // Сразу подтягиваем созданного клиента (чтобы получить Guid Id и остальные поля)
-            var updatedClients = await _wireGuardApi.GetWireguardClients(cancellationToken) ?? [];
+            var updatedClients = await _xuiApi.GetClients(cancellationToken) ?? [];
             var createdClient = updatedClients.FirstOrDefault(c => string.Equals(c.Name, clientName, StringComparison.OrdinalIgnoreCase));
             if (createdClient is null)
             {
@@ -134,27 +134,27 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
                 return true;
             }
 
-            // Сохраняем/обновляем peer в БД и создаём связь WireGuardUsers (клиент принадлежит создателю)
+            // Сохраняем/обновляем peer в БД и создаём связь VpnUsers (клиент принадлежит создателю)
             using (var scope = _scopeFactory.CreateScope())
             {
-                var peerRepo = scope.ServiceProvider.GetRequiredService<IWireGuardPeerRepository>();
-                var wireGuardUserRepo = scope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
+                var peerRepo = scope.ServiceProvider.GetRequiredService<IVpnPeerRepository>();
+                var vpnUserRepo = scope.ServiceProvider.GetRequiredService<IVpnUserRepository>();
                 var telegramUserRepository = scope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
                 var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-                var domainClient = new WireguardClient(
+                var domainClient = new VpnClient(
                     Name: createdClient.Name,
                     Enabled: createdClient.Enabled,
                     Address: createdClient.Address,
                     PublicKey: createdClient.PublicKey,
                     CreatedAt: DateOnly.FromDateTime(createdClient.CreatedAt.UtcDateTime));
 
-                var peerEntity = await peerRepo.GetByWireGuardIdAsync(createdClient.Id, cancellationToken);
+                var peerEntity = await peerRepo.GetByClientIdAsync(createdClient.Id, cancellationToken);
                 if (peerEntity is null)
                 {
-                    peerEntity = new WireGuardPeer
+                    peerEntity = new VpnPeer
                     {
-                        WireGuardId = createdClient.Id,
+                        ClientId = createdClient.Id,
                         Name = domainClient.Name,
                         IsEnabled = domainClient.Enabled,
                         Address = domainClient.Address,
@@ -166,8 +166,8 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
                 }
                 else
                 {
-                    // На всякий случай фиксируем WireGuardId, если запись была заведена криво
-                    peerEntity.WireGuardId = createdClient.Id;
+                    // На всякий случай фиксируем ClientId, если запись была заведена криво
+                    peerEntity.ClientId = createdClient.Id;
                     peerEntity.Update(domainClient);
                 }
 
@@ -184,10 +184,10 @@ public sealed class AddClientNameTextFlowHandler : ITelegramTextFlowHandler
 	                return true;
                 }
 
-                var exists = await wireGuardUserRepo.ExistsAsync(user.Id, peerEntity.Id, cancellationToken);
+                var exists = await vpnUserRepo.ExistsAsync(user.Id, peerEntity.Id, cancellationToken);
                 if (!exists)
                 {
-                    wireGuardUserRepo.Add(new WireGuardUser
+                    vpnUserRepo.Add(new VpnUser
                     {
                         TelegramUserId = user.Id,
                         PeerId = peerEntity.Id,

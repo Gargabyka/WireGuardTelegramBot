@@ -12,13 +12,13 @@ public class AppDbContext : DbContext
 
 	public DbSet<TelegramUser> TelegramUsers { get; set; }
 
-	public DbSet<WireGuardPeer> WireGuardPeers { get; set; }
+	public DbSet<VpnPeer> VpnPeers { get; set; }
 
-	public DbSet<WireGuardUser> WireGuardUsers { get; set; }
+	public DbSet<VpnUser> VpnUsers { get; set; }
 
 	public DbSet<HostingReminderState> HostingReminderStates { get; set; }
 
-	public DbSet<WireGuardTrafficSnapshot> WireGuardTrafficSnapshots { get; set; }
+	public DbSet<VpnTrafficSnapshot> VpnTrafficSnapshots { get; set; }
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
 	{

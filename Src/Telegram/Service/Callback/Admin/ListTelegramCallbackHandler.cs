@@ -5,8 +5,8 @@ using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Common.Helper;
 using Telegram.Enums;
 using Telegram.Models;
-using WireGuard.Models;
-using WireGuard.Services.Interface;
+using XUi.Models;
+using XUi.Services.Interface;
 
 namespace Telegram.Service.Callback.Admin;
 
@@ -18,16 +18,16 @@ public class ListTelegramCallbackHandler : TelegramCallbackHandlerBase
 {
     private const int PageSize = 9;
 
-    private readonly IWireGuardApiService _wireGuardApiService;
+    private readonly IXUiApiService _xuiApiService;
     private readonly ITelegramBotClient _telegramBot;
 
     public ListTelegramCallbackHandler(
         ITelegramBotClient telegramBot,
-        IWireGuardApiService wireGuardApiService)
+        IXUiApiService xuiApiService)
         : base(telegramBot)
     {
         _telegramBot = telegramBot;
-        _wireGuardApiService = wireGuardApiService;
+        _xuiApiService = xuiApiService;
     }
 
     public override TelegramCallbackEvent CallbackEvent => TelegramCallbackEvent.List;
@@ -39,7 +39,7 @@ public class ListTelegramCallbackHandler : TelegramCallbackHandlerBase
         // Не захламляем чат: удаляем текущий экран (список/карточку/подтверждение)
         await TryDeleteOriginMessageAsync(update, cancellationToken);
 
-        var clients = await _wireGuardApiService.GetWireguardClients(cancellationToken);
+        var clients = await _xuiApiService.GetClients(cancellationToken);
         if (clients is null or { Length: 0 })
         {
             var backToMenuEmpty = BackTo(TelegramCallbackEvent.AdminPanel, sourceEvent: TelegramCallbackEvent.AdminPanel);
@@ -116,7 +116,7 @@ public class ListTelegramCallbackHandler : TelegramCallbackHandlerBase
         await AnswerAsync(update, cancellationToken);
     }
 
-    private static List<InlineKeyboardButton[]> BuildClientRows(IEnumerable<WireguardClients> clients)
+    private static List<InlineKeyboardButton[]> BuildClientRows(IEnumerable<XUiClient> clients)
     {
         var buttons = clients
             .Select(client => InlineKeyboardButton.WithCallbackData(

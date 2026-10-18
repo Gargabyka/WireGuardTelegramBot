@@ -42,12 +42,12 @@ public class AddClientStartTelegramCallbackHandler : TelegramCallbackHandlerBase
         using (var scope = _scopeFactory.CreateScope())
         {
             var telegramUserRepo = scope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
-            var wgUserRepo = scope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
+            var vpnUserRepo = scope.ServiceProvider.GetRequiredService<IVpnUserRepository>();
 
             var user = await telegramUserRepo.GetUserByTelegramIdAsync(chatId, cancellationToken);
             if (user?.MaxConnections is { } limit)
             {
-                var currentCount = (await wgUserRepo.GetConnectionsByTelegramIdAsync(user.Id, cancellationToken)).Length;
+                var currentCount = (await vpnUserRepo.GetConnectionsByTelegramIdAsync(user.Id, cancellationToken)).Length;
                 if (currentCount >= limit)
                 {
                     await _telegramBot.SendMessage(

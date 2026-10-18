@@ -1,26 +1,24 @@
 services:
-  wireguard-bot:
+  vpn-bot:
     build: .
-    container_name: wireguard-bot
+    container_name: vpn-bot
     restart: unless-stopped
-
-    user: "0:0"
-
-    ports:
-      - "8080:8080"
 
     environment:
       ASPNETCORE_ENVIRONMENT: "Production"
       Telegram__Token: "<TOKEN_PLACEHOLDER>"
       Telegram__AdminIds__0: "<ADMIN_ID_PLACEHOLDER>"
-      WireGuardApi__ApiUrl: "http://<HOST:PORT>/"
-      WireGuardApi__ApiPassword: "<PASSWORD_PLACEHOLDER>"
-      ConnectionStrings__Sqlite: "Data Source=/data/wireguard_bot.db"
-      WireGuardDocker__Enabled: "true"
-      WireGuardDocker__DockerSocketPath: "/var/run/docker.sock"
-      WireGuardDocker__TargetContainerName: "wg-easy"
+      # Адрес панели 3x-ui с webBasePath. Если 3x-ui в docker с network_mode: host —
+      # используйте http://host.docker.internal:<порт>/<webBasePath>/ (см. extra_hosts ниже)
+      XUi__ApiUrl: "http://host.docker.internal:2053/<WEB_BASE_PATH>/"
+      # Settings -> Security -> API Token
+      XUi__ApiToken: "<API_TOKEN_PLACEHOLDER>"
+      # ID inbound'а VLESS + Reality (колонка ID в списке inbound'ов)
+      XUi__InboundId: "1"
+      ConnectionStrings__Sqlite: "Data Source=/data/vpn_bot.db"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
     volumes:
       - ./data:/data
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /etc/wireguard:/etc/wireguard:rw

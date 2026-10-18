@@ -30,7 +30,7 @@ artifacts/
 **/*.db
 **/*.sqlite
 **/*.sqlite3
-Host/wireguard_bot.db
+Host/vpn_bot.db
 data/
 
 #Env

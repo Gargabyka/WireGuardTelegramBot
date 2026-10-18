@@ -112,13 +112,13 @@ public enum TelegramCallbackEvent
     UserChangeRole = 27,
 
     /// <summary>
-    /// Обновить соединения (синхронизация с WireGuard API)
+    /// Обновить соединения (синхронизация с 3x-ui API)
     /// </summary>
     [CallbackCode("rc")]
     RefreshConnections = 28,
 
     /// <summary>
-    /// Обновить соединения (синхронизация с WireGuard API)
+    /// Обновить соединения (синхронизация с 3x-ui API)
     /// </summary>
     [CallbackCode("uf")]
     UserDeleteConfirm = 29,
@@ -130,28 +130,10 @@ public enum TelegramCallbackEvent
     UserAddConnectionSelect = 30,
 
     /// <summary>
-    /// Разорвать связь пользователь↔соединение (WireGuardUsers)
+    /// Разорвать связь пользователь↔соединение (VpnUsers)
     /// </summary>
     [CallbackCode("ux")]
     UserUnlinkConnection = 31,
-
-    /// <summary>
-    /// Обновить конфиг (выбор способа применения)
-    /// </summary>
-    [CallbackCode("cf")]
-    RefreshConfigAsk = 32,
-
-    /// <summary>
-    /// Обновить конфиг: мягко (wg syncconf)
-    /// </summary>
-    [CallbackCode("cs")]
-    RefreshConfigSoft = 33,
-
-    /// <summary>
-    /// Обновить конфиг: жёстко (wg-quick down/up)
-    /// </summary>
-    [CallbackCode("ch")]
-    RefreshConfigHard = 34,
 
     /// <summary>
     /// Включить/выключить напоминания об оплате хостинга для пользователя
@@ -160,7 +142,7 @@ public enum TelegramCallbackEvent
     UserToggleReminderOptOut = 35,
 
     /// <summary>
-    /// Включить/выключить peer WireGuard
+    /// Включить/выключить клиента 3x-ui
     /// </summary>
     [CallbackCode("pt")]
     TogglePeerEnabled = 36,

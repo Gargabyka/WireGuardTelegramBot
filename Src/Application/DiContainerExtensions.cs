@@ -10,10 +10,10 @@ public static class DiContainerExtensions
 	public static void AddApplicationConfiguration(this IServiceCollection services)
 	{
 		services.AddScoped<ITelegramUserRepository, TelegramUserRepository>();
-		services.AddScoped<IWireGuardPeerRepository, WireGuardPeerRepository>();
-		services.AddScoped<IWireGuardUserRepository, WireGuardUserRepository>();
+		services.AddScoped<IVpnPeerRepository, VpnPeerRepository>();
+		services.AddScoped<IVpnUserRepository, VpnUserRepository>();
 		services.AddScoped<IHostingReminderStateRepository, HostingReminderStateRepository>();
-		services.AddScoped<IWireGuardTrafficSnapshotRepository, WireGuardTrafficSnapshotRepository>();
+		services.AddScoped<IVpnTrafficSnapshotRepository, VpnTrafficSnapshotRepository>();
 		services.AddScoped<TelegramUserService>();
 	}
 }

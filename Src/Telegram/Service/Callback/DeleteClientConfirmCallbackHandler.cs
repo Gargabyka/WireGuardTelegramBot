@@ -7,7 +7,7 @@ using Telegram.Bot.Types;
 using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Enums;
 using Telegram.Models;
-using WireGuard.Services.Interface;
+using XUi.Services.Interface;
 
 namespace Telegram.Service.Callback;
 
@@ -17,18 +17,18 @@ namespace Telegram.Service.Callback;
 [UsedImplicitly]
 public class DeleteClientConfirmCallbackHandler : TelegramCallbackHandlerBase
 {
-    private readonly IWireGuardApiService _wireGuardApiService;
+    private readonly IXUiApiService _xuiApiService;
     private readonly ITelegramBotClient _telegramBot;
     private readonly IServiceScopeFactory _scopeFactory;
 
     public DeleteClientConfirmCallbackHandler(
         ITelegramBotClient telegramBot,
-        IWireGuardApiService wireGuardApiService,
+        IXUiApiService xuiApiService,
         IServiceScopeFactory scopeFactory)
         : base(telegramBot)
     {
         _telegramBot = telegramBot;
-        _wireGuardApiService = wireGuardApiService;
+        _xuiApiService = xuiApiService;
         _scopeFactory = scopeFactory;
     }
 
@@ -41,19 +41,19 @@ public class DeleteClientConfirmCallbackHandler : TelegramCallbackHandlerBase
         // Удаляем экран подтверждения, чтобы не плодить сообщения
         await TryDeleteOriginMessageAsync(update, cancellationToken);
 
-        // 1) Удаляем в WireGuard
-        await _wireGuardApiService.DeleteClientAsync(request.Id, cancellationToken);
+        // 1) Удаляем в 3x-ui
+        await _xuiApiService.DeleteClientAsync(request.Id, cancellationToken);
 
         // 2) Удаляем в БД (если запись есть)
         using (var scope = _scopeFactory.CreateScope())
         {
-            var peerRepo = scope.ServiceProvider.GetRequiredService<IWireGuardPeerRepository>();
+            var peerRepo = scope.ServiceProvider.GetRequiredService<IVpnPeerRepository>();
             var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-            var peer = await peerRepo.GetByWireGuardIdAsync(request.Id, cancellationToken);
+            var peer = await peerRepo.GetByClientIdAsync(request.Id, cancellationToken);
             if (peer is not null)
             {
-                // Важно: связи WireGuardUsers удалятся каскадно по FK PeerId (у вас DeleteBehavior.Cascade)
+                // Важно: связи VpnUsers удалятся каскадно по FK PeerId (у вас DeleteBehavior.Cascade)
                 peerRepo.Remove(peer);
                 await uow.SaveChangesAsync(cancellationToken);
             }

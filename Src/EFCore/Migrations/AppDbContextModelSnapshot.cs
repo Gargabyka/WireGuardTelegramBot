@@ -80,7 +80,7 @@ namespace EFCore.Migrations
                     b.ToTable("TelegramUsers");
                 });
 
-            modelBuilder.Entity("Domain.Entities.WireGuardPeer", b =>
+            modelBuilder.Entity("Domain.Entities.VpnPeer", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -89,6 +89,9 @@ namespace EFCore.Migrations
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ClientId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("CreatedAt")
@@ -108,18 +111,15 @@ namespace EFCore.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("WireGuardId")
-                        .HasColumnType("TEXT");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("WireGuardId")
+                    b.HasIndex("ClientId")
                         .IsUnique();
 
-                    b.ToTable("WireGuardPeers");
+                    b.ToTable("VpnPeers");
                 });
 
-            modelBuilder.Entity("Domain.Entities.WireGuardTrafficSnapshot", b =>
+            modelBuilder.Entity("Domain.Entities.VpnTrafficSnapshot", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -128,23 +128,23 @@ namespace EFCore.Migrations
                     b.Property<DateTime>("CapturedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("TransferRx")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("TransferTx")
                         .HasColumnType("INTEGER");
 
-                    b.Property<Guid>("WireGuardId")
-                        .HasColumnType("TEXT");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("WireGuardId", "CapturedAtUtc");
+                    b.HasIndex("ClientId", "CapturedAtUtc");
 
-                    b.ToTable("WireGuardTrafficSnapshots");
+                    b.ToTable("VpnTrafficSnapshots");
                 });
 
-            modelBuilder.Entity("Domain.Entities.WireGuardUser", b =>
+            modelBuilder.Entity("Domain.Entities.VpnUser", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -163,12 +163,12 @@ namespace EFCore.Migrations
                     b.HasIndex("TelegramUserId", "PeerId")
                         .IsUnique();
 
-                    b.ToTable("WireGuardUsers");
+                    b.ToTable("VpnUsers");
                 });
 
-            modelBuilder.Entity("Domain.Entities.WireGuardUser", b =>
+            modelBuilder.Entity("Domain.Entities.VpnUser", b =>
                 {
-                    b.HasOne("Domain.Entities.WireGuardPeer", "Peer")
+                    b.HasOne("Domain.Entities.VpnPeer", "Peer")
                         .WithMany()
                         .HasForeignKey("PeerId")
                         .OnDelete(DeleteBehavior.Cascade)

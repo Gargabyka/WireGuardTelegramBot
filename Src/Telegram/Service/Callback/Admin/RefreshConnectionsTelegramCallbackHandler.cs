@@ -8,7 +8,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Enums;
 using Telegram.Models;
-using WireGuard.Services.Interface;
+using XUi.Services.Interface;
 
 namespace Telegram.Service.Callback.Admin;
 
@@ -45,30 +45,30 @@ public sealed class RefreshConnectionsTelegramCallbackHandler : TelegramAdminCal
 
 		await _telegramBot.SendMessage(
 			chatId: chatId.Value,
-			text: "Обновляю соединения из WireGuard…",
+			text: "Обновляю соединения из 3x-ui…",
 			cancellationToken: cancellationToken);
 
 		try
 		{
 			using var scope = _scopeFactory.CreateScope();
 
-			var wireGuardApiService = scope.ServiceProvider.GetRequiredService<IWireGuardApiService>();
-			var wireGuardPeerRepository = scope.ServiceProvider.GetRequiredService<IWireGuardPeerRepository>();
+			var xuiApiService = scope.ServiceProvider.GetRequiredService<IXUiApiService>();
+			var vpnPeerRepository = scope.ServiceProvider.GetRequiredService<IVpnPeerRepository>();
 			var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-			var clients = await wireGuardApiService.GetWireguardClients(cancellationToken) ?? [];
+			var clients = await xuiApiService.GetClients(cancellationToken) ?? [];
 
 			// текущие id из БД
-			var existingIds = (await wireGuardPeerRepository.GetPeersAsync(cancellationToken))
-				.Select(x => x.WireGuardId)
+			var existingIds = (await vpnPeerRepository.GetPeersAsync(cancellationToken))
+				.Select(x => x.ClientId)
 				.ToHashSet();
 
-			// добавляем только новые, чтобы не словить уникальный индекс по WireGuardId
+			// добавляем только новые, чтобы не словить уникальный индекс по ClientId
 			var peersToAdd = clients
 				.Where(x => !existingIds.Contains(x.Id))
-				.Select(x => new WireGuardPeer
+				.Select(x => new VpnPeer
 				{
-					WireGuardId = x.Id,
+					ClientId = x.Id,
 					Name = x.Name,
 					IsEnabled = x.Enabled,
 					Address = x.Address,
@@ -79,7 +79,7 @@ public sealed class RefreshConnectionsTelegramCallbackHandler : TelegramAdminCal
 
 			if (peersToAdd.Length > 0)
 			{
-				wireGuardPeerRepository.AddRange(peersToAdd);
+				vpnPeerRepository.AddRange(peersToAdd);
 				await unitOfWork.SaveChangesAsync(cancellationToken);
 			}
 
@@ -87,7 +87,7 @@ public sealed class RefreshConnectionsTelegramCallbackHandler : TelegramAdminCal
 
 			await _telegramBot.SendMessage(
 				chatId: chatId.Value,
-				text: $"Готово.\nВсего в WireGuard: {clients.Length}\nДобавлено: {peersToAdd.Length}\nПропущено (уже были): {skipped}",
+				text: $"Готово.\nВсего в 3x-ui: {clients.Length}\nДобавлено: {peersToAdd.Length}\nПропущено (уже были): {skipped}",
 				cancellationToken: cancellationToken);
 		}
 		catch (OperationCanceledException)
