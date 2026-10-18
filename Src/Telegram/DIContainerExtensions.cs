@@ -39,7 +39,7 @@ public static class DiContainerExtensions
         services.AddSingleton<ITelegramHandler, TelegramHandler>();
         services.AddHostedService<TelegramLongPollingService>();
         services.AddHostedService<HostingReminderBackgroundService>();
-        services.AddHostedService<VpnTrafficSnapshotBackgroundService>();
+        services.AddHostedService<WireGuardTrafficSnapshotBackgroundService>();
 
         AddTelegramUpdate(services);
         AddTelegramCallback(services);

@@ -7,31 +7,31 @@ using Telegram.Bot.Types;
 using Telegram.Common.Helper;
 using Telegram.Models;
 using Telegram.Service.Interface;
-using XUi.Services.Interface;
+using WireGuard.Services.Interface;
 
 namespace Telegram.Service.Updates;
 
 /// <summary>
-/// Обработчик команды /status — диагностика для админа: жив ли 3x-ui API,
+/// Обработчик команды /status — диагностика для админа: жив ли WireGuard API,
 /// сколько всего/включённых/отключённых peer'ов, сколько пользователей бота.
 /// </summary>
 public sealed class StatusTelegramUpdateHandler : ITelegramUpdateHandler
 {
 	private readonly ITelegramBotClient _telegramBot;
-	private readonly IXUiApiService _xuiApiService;
+	private readonly IWireGuardApiService _wireGuardApiService;
 	private readonly TelegramOptions _telegramOptions;
 	private readonly HostingReminderOptions _hostingReminderOptions;
 	private readonly IServiceScopeFactory _scopeFactory;
 
 	public StatusTelegramUpdateHandler(
 		ITelegramBotClient telegramBot,
-		IXUiApiService xuiApiService,
+		IWireGuardApiService wireGuardApiService,
 		IOptions<TelegramOptions> telegramOptions,
 		IOptions<HostingReminderOptions> hostingReminderOptions,
 		IServiceScopeFactory scopeFactory)
 	{
 		_telegramBot = telegramBot;
-		_xuiApiService = xuiApiService;
+		_wireGuardApiService = wireGuardApiService;
 		_telegramOptions = telegramOptions.Value;
 		_hostingReminderOptions = hostingReminderOptions.Value;
 		_scopeFactory = scopeFactory;
@@ -56,21 +56,21 @@ public sealed class StatusTelegramUpdateHandler : ITelegramUpdateHandler
 
 		var usersCount = (await telegramUserRepo.GetUsersAsync(cancellationToken)).Length;
 
-		string xuiStatusLine;
+		string wireGuardStatusLine;
 		try
 		{
-			var clients = await _xuiApiService.GetClients(cancellationToken) ?? [];
+			var clients = await _wireGuardApiService.GetWireguardClients(cancellationToken) ?? [];
 			var enabledCount = clients.Count(x => x.Enabled);
 
-			xuiStatusLine = $"""
-			                       3x-ui API: ✅ доступен
+			wireGuardStatusLine = $"""
+			                       WireGuard API: ✅ доступен
 			                       Всего peer'ов: {clients.Length} (включено: {enabledCount}, отключено: {clients.Length - enabledCount})
 			                       """;
 		}
 		catch (Exception ex)
 		{
-			xuiStatusLine = $"""
-			                       3x-ui API: ❌ недоступен ({ex.Message})
+			wireGuardStatusLine = $"""
+			                       WireGuard API: ❌ недоступен ({ex.Message})
 			                       Всего peer'ов: нет данных
 			                       """;
 		}
@@ -90,7 +90,7 @@ public sealed class StatusTelegramUpdateHandler : ITelegramUpdateHandler
 		var text = $"""
 		            📊 Статус системы
 
-		            {xuiStatusLine}
+		            {wireGuardStatusLine}
 		            Пользователей бота: {usersCount}
 		            {reminderLine}
 		            """;

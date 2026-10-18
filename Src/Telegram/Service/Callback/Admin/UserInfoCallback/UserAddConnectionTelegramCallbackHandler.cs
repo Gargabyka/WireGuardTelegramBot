@@ -46,8 +46,8 @@ public sealed class UserAddConnectionTelegramCallbackHandler : TelegramAdminCall
 
 		using var scope = _scopeFactory.CreateScope();
 		var tgRepo = scope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
-		var peerRepo = scope.ServiceProvider.GetRequiredService<IVpnPeerRepository>();
-		var vpnUserRepo = scope.ServiceProvider.GetRequiredService<IVpnUserRepository>();
+		var peerRepo = scope.ServiceProvider.GetRequiredService<IWireGuardPeerRepository>();
+		var wgUserRepo = scope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
 
 		var user = await tgRepo.GetUserByTelegramIdAsync(targetTelegramId, cancellationToken);
 		if (user is null)
@@ -66,7 +66,7 @@ public sealed class UserAddConnectionTelegramCallbackHandler : TelegramAdminCall
 		}
 
 		var allPeers = await peerRepo.GetPeersAsync(cancellationToken);
-		var usedPeerIds = await vpnUserRepo.GetUsedPeerIdsAsync(cancellationToken);
+		var usedPeerIds = await wgUserRepo.GetUsedPeerIdsAsync(cancellationToken);
 		var used = usedPeerIds.ToHashSet();
 
 		var available = allPeers

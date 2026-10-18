@@ -5,7 +5,7 @@ using Telegram.Bot;
 using Telegram.Bot.Types;
 using Telegram.Enums;
 using Telegram.Models;
-using XUi.Services.Interface;
+using WireGuard.Services.Interface;
 
 namespace Telegram.Service.Callback;
 
@@ -15,17 +15,17 @@ namespace Telegram.Service.Callback;
 [UsedImplicitly]
 public class DownloadConfigTelegramCallbackHandler : TelegramCallbackHandlerBase
 {
-    private readonly IXUiApiService _xuiApiService;
+    private readonly IWireGuardApiService _wireGuardApiService;
     private readonly ITelegramBotClient _telegramBot;
     private readonly IServiceScopeFactory _scopeFactory;
 
     public DownloadConfigTelegramCallbackHandler(
-	    IXUiApiService xuiApiService,
+	    IWireGuardApiService wireGuardApiService,
 	    ITelegramBotClient telegramBot,
 	    IServiceScopeFactory scopeFactory)
         : base(telegramBot)
     {
-        _xuiApiService = xuiApiService;
+        _wireGuardApiService = wireGuardApiService;
         _telegramBot = telegramBot;
         _scopeFactory = scopeFactory;
     }
@@ -38,27 +38,27 @@ public class DownloadConfigTelegramCallbackHandler : TelegramCallbackHandlerBase
 
         // Тут специально НЕ удаляем исходное сообщение (QR-экран) — пусть остаётся,
         // а конфиг просто прилетит отдельным документом.
-        var document = await _xuiApiService.DownloadConfigAsync(request.Id, cancellationToken);
+        var document = await _wireGuardApiService.DownloadConfigAsync(request.Id, cancellationToken);
         await using var ms = new MemoryStream(document, writable: false);
         ms.Position = 0;
 
-        var inputFile = InputFile.FromStream(ms, fileName: "vless.txt");
+        var inputFile = InputFile.FromStream(ms, fileName: "vpn.conf");
         var configName = await GetConfigName(request.Id, cancellationToken);
 
         await _telegramBot.SendDocument(
 	        chatId: chatId,
 	        document: inputFile,
-	        caption: $"Ссылка VLESS для импорта в клиент {configName}",
+	        caption: $"Конфиг для WireGuard {configName}",
 	        cancellationToken: cancellationToken);
 
         await AnswerAsync(update, cancellationToken);
     }
 
-    private async Task<string?> GetConfigName(Guid clientId, CancellationToken cancellationToken)
+    private async Task<string?> GetConfigName(Guid wireGuardId, CancellationToken cancellationToken)
     {
 	    var scope = _scopeFactory.CreateScope();
-	    var vpnPeerRepository = scope.ServiceProvider.GetRequiredService<IVpnPeerRepository>();
-	    var peer = await vpnPeerRepository.GetByClientIdAsync(clientId, cancellationToken);
+	    var wireGuarPeerRepository = scope.ServiceProvider.GetRequiredService<IWireGuardPeerRepository>();
+	    var peer = await wireGuarPeerRepository.GetByWireGuardIdAsync(wireGuardId, cancellationToken);
 
 	    return $"({peer?.Name})";
     }

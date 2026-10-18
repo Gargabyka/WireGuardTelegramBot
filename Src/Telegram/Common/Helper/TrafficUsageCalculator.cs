@@ -4,13 +4,13 @@ namespace Telegram.Common.Helper;
 
 /// <summary>
 /// Считает расход трафика за период по снимкам счётчиков, корректно обрабатывая
-/// сброс счётчика (например, после перезапуска xray или сброса трафика) —
+/// сброс счётчика (например, после перезапуска интерфейса WireGuard на сервере) —
 /// в этом случае новое значение меньше предыдущего, и оно засчитывается целиком с нуля,
 /// а не как отрицательная разница.
 /// </summary>
 public static class TrafficUsageCalculator
 {
-	public static (long Rx, long Tx) ComputeUsage(IReadOnlyList<VpnTrafficSnapshot> orderedSnapshots)
+	public static (long Rx, long Tx) ComputeUsage(IReadOnlyList<WireGuardTrafficSnapshot> orderedSnapshots)
 	{
 		long rx = 0;
 		long tx = 0;

@@ -11,8 +11,8 @@ using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Common.Helper;
 using Telegram.Enums;
 using Telegram.Models;
-using XUi.Models;
-using XUi.Services.Interface;
+using WireGuard.Models;
+using WireGuard.Services.Interface;
 
 namespace Telegram.Service.Callback;
 
@@ -22,17 +22,17 @@ namespace Telegram.Service.Callback;
 [UsedImplicitly]
 public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
 {
-    private readonly IXUiApiService _xuiApiService;
+    private readonly IWireGuardApiService _wireGuardApiService;
     private readonly ITelegramBotClient _telegramBot;
     private readonly IServiceScopeFactory _scopeFactory;
 
     public GetInfoTelegramCallbackHandler(
-        IXUiApiService xuiApiService,
+        IWireGuardApiService wireGuardApiService,
         ITelegramBotClient telegramBot,
         IServiceScopeFactory scopeFactory)
         : base(telegramBot)
     {
-        _xuiApiService = xuiApiService;
+        _wireGuardApiService = wireGuardApiService;
         _telegramBot = telegramBot;
         _scopeFactory = scopeFactory;
     }
@@ -46,7 +46,7 @@ public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
     {
 	    var (chatId, _, _) = GetCallbackContext(update);
 
-	    var clients = await _xuiApiService.GetClients(cancellationToken);
+	    var clients = await _wireGuardApiService.GetWireguardClients(cancellationToken);
 	    if (clients is null or { Length: 0 })
 	    {
 		    await _telegramBot.SendMessage(
@@ -68,7 +68,7 @@ public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
 
 	    await TryDeleteOriginMessageAsync(update, cancellationToken);
 
-	    var configBytes = await _xuiApiService.DownloadConfigAsync(request.Id, cancellationToken);
+	    var configBytes = await _wireGuardApiService.DownloadConfigAsync(request.Id, cancellationToken);
 	    var configText = Encoding.UTF8.GetString(configBytes)
 		    .Replace("\r\n", "\n")
 		    .Replace("\r", "\n");
@@ -113,7 +113,7 @@ public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
 
 	    var markup = new InlineKeyboardMarkup([
 		    [
-			    InlineKeyboardButton.WithCallbackData("⬇ Скачать ссылку", Encode(downloadRequest))
+			    InlineKeyboardButton.WithCallbackData("⬇ Скачать конфиг", Encode(downloadRequest))
 		    ],
 		    [
 			    InlineKeyboardButton.WithCallbackData(
@@ -144,7 +144,7 @@ public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
 	    await AnswerAsync(update, cancellationToken);
     }
 
-    private static string BuildClientInfoText(XUiClient client)
+    private static string BuildClientInfoText(WireguardClients client)
     {
         var lastHandshake = client.LatestHandshakeAt.HasValue
             ? client.LatestHandshakeAt.Value.LocalDateTime.ToString("dd.MM.yyyy HH:mm")
@@ -152,18 +152,20 @@ public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
 
         return $"""
                 Имя клиента: {client.Name}
+                Адрес: {client.Address}
                 Клиент включен: {(client.Enabled ? "да" : "нет")}
-                Дата создания клиента: {client.CreatedAt:dd.MM.yyyy}
-                Последняя активность: {lastHandshake}
+                Публичный ключ: {client.PublicKey}
+                Дата создания клиента: {client.CreatedAt:MM.dd.yyyy}
+                Последнее подключение: {lastHandshake}
                 """;
     }
 
-    private async Task<string> BuildTrafficSummaryAsync(Guid clientId, CancellationToken cancellationToken)
+    private async Task<string> BuildTrafficSummaryAsync(Guid wireGuardId, CancellationToken cancellationToken)
     {
         using var scope = _scopeFactory.CreateScope();
-        var snapshotRepo = scope.ServiceProvider.GetRequiredService<IVpnTrafficSnapshotRepository>();
+        var snapshotRepo = scope.ServiceProvider.GetRequiredService<IWireGuardTrafficSnapshotRepository>();
 
-        var firstSnapshotDate = await snapshotRepo.GetFirstSnapshotDateAsync(clientId, cancellationToken);
+        var firstSnapshotDate = await snapshotRepo.GetFirstSnapshotDateAsync(wireGuardId, cancellationToken);
         if (firstSnapshotDate is null)
         {
             return "📊 Статистика трафика: пока нет данных (сбор начнётся в течение часа).";
@@ -172,10 +174,10 @@ public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
         var now = DateTime.UtcNow;
 
         // Запросы идут последовательно — DbContext не потокобезопасен для параллельных вызовов
-        var day = await snapshotRepo.GetSnapshotsForPeriodAsync(clientId, now.AddDays(-1), cancellationToken);
-        var week = await snapshotRepo.GetSnapshotsForPeriodAsync(clientId, now.AddDays(-7), cancellationToken);
-        var month = await snapshotRepo.GetSnapshotsForPeriodAsync(clientId, now.AddDays(-30), cancellationToken);
-        var all = await snapshotRepo.GetSnapshotsForPeriodAsync(clientId, null, cancellationToken);
+        var day = await snapshotRepo.GetSnapshotsForPeriodAsync(wireGuardId, now.AddDays(-1), cancellationToken);
+        var week = await snapshotRepo.GetSnapshotsForPeriodAsync(wireGuardId, now.AddDays(-7), cancellationToken);
+        var month = await snapshotRepo.GetSnapshotsForPeriodAsync(wireGuardId, now.AddDays(-30), cancellationToken);
+        var all = await snapshotRepo.GetSnapshotsForPeriodAsync(wireGuardId, null, cancellationToken);
 
         return $"""
                 📊 Статистика трафика (учёт с {firstSnapshotDate.Value.ToLocalTime():dd.MM.yyyy HH:mm}):
@@ -186,7 +188,7 @@ public class GetInfoTelegramCallbackHandler : TelegramCallbackHandlerBase
                 """;
     }
 
-    private static string FormatPeriodLine(string label, VpnTrafficSnapshot[] snapshots)
+    private static string FormatPeriodLine(string label, WireGuardTrafficSnapshot[] snapshots)
     {
         var (rx, tx) = TrafficUsageCalculator.ComputeUsage(snapshots);
         return $"{label}: {TrafficFormatter.FormatBytes(rx + tx)}";

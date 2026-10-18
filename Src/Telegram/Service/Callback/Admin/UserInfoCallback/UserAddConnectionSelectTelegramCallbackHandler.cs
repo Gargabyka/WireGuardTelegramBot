@@ -46,8 +46,8 @@ public sealed class UserAddConnectionSelectTelegramCallbackHandler : TelegramAdm
 		var peerId = request.Page;
 
 		using var scope = _scopeFactory.CreateScope();
-		var vpnUserRepo = scope.ServiceProvider.GetRequiredService<IVpnUserRepository>();
-		var peerRepo = scope.ServiceProvider.GetRequiredService<IVpnPeerRepository>();
+		var wgUserRepo = scope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
+		var peerRepo = scope.ServiceProvider.GetRequiredService<IWireGuardPeerRepository>();
 		var telegramUserRepo = scope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
 		var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
@@ -68,7 +68,7 @@ public sealed class UserAddConnectionSelectTelegramCallbackHandler : TelegramAdm
 		}
 
 		// Защита: если peer уже привязан к кому-то — не даём привязать повторно
-		var usedPeerIds = await vpnUserRepo.GetUsedPeerIdsAsync(cancellationToken);
+		var usedPeerIds = await wgUserRepo.GetUsedPeerIdsAsync(cancellationToken);
 		if (usedPeerIds.Contains(peerId))
 		{
 			var back = new TelegramRequest(request.Id, TelegramCallbackEvent.UserAddConnection, TelegramCallbackEvent.UserInfo);
@@ -95,7 +95,7 @@ public sealed class UserAddConnectionSelectTelegramCallbackHandler : TelegramAdm
 			return;
 		}
 
-		vpnUserRepo.Add(new VpnUser
+		wgUserRepo.Add(new WireGuardUser
 		{
 			TelegramUserId = user.Id,
 			PeerId = peerId,

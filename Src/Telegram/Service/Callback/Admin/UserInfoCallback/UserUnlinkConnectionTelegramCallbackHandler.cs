@@ -44,7 +44,7 @@ public sealed class UserUnlinkConnectionTelegramCallbackHandler : TelegramAdminC
 		var peerId = request.Page;
 
 		using var scope = _scopeFactory.CreateScope();
-		var vpnUserRepo = scope.ServiceProvider.GetRequiredService<IVpnUserRepository>();
+		var wgUserRepo = scope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
 		var telegramUserRepo = scope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
 
 		var user = await telegramUserRepo.GetUserByTelegramIdAsync(targetTelegramId, cancellationToken);
@@ -58,7 +58,7 @@ public sealed class UserUnlinkConnectionTelegramCallbackHandler : TelegramAdminC
 			return;
 		}
 
-		var deleted = await vpnUserRepo.RemoveLinkAsync(user.Id, peerId, cancellationToken);
+		var deleted = await wgUserRepo.RemoveLinkAsync(user.Id, peerId, cancellationToken);
 
 		// Возвращаемся к списку соединений пользователя (страницу восстановить нельзя без доп. поля — вернёмся на 0)
 		var backToConnections = new TelegramRequest(

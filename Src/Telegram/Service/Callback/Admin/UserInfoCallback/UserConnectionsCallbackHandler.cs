@@ -8,8 +8,8 @@ using Telegram.Bot.Types.ReplyMarkups;
 using Telegram.Common.Helper;
 using Telegram.Enums;
 using Telegram.Models;
-using XUi.Models;
-using XUi.Services.Interface;
+using WireGuard.Models;
+using WireGuard.Services.Interface;
 
 namespace Telegram.Service.Callback.Admin.UserInfoCallback;
 
@@ -19,18 +19,18 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 	private const int PageSize = 9;
 
 	private readonly ITelegramBotClient _bot;
-	private readonly IXUiApiService _xuiApiService;
+	private readonly IWireGuardApiService _wireGuardApiService;
 	private readonly IServiceScopeFactory _scopeFactory;
 
 	public UserConnectionsCallbackHandler(
 		ITelegramBotClient telegramBot,
-		IXUiApiService xuiApiService,
+		IWireGuardApiService wireGuardApiService,
 		IOptions<TelegramOptions> telegramOptions,
 		IServiceScopeFactory scopeFactory)
 		: base(telegramBot, telegramOptions, scopeFactory)
 	{
 		_bot = telegramBot;
-		_xuiApiService = xuiApiService;
+		_wireGuardApiService = wireGuardApiService;
 		_scopeFactory = scopeFactory;
 	}
 
@@ -52,7 +52,7 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 		using var scope = _scopeFactory.CreateScope();
 
 		var userRepo = scope.ServiceProvider.GetRequiredService<ITelegramUserRepository>();
-		var vpnUserRepo = scope.ServiceProvider.GetRequiredService<IVpnUserRepository>();
+		var wgUserRepo = scope.ServiceProvider.GetRequiredService<IWireGuardUserRepository>();
 
 		var user = await userRepo.GetUserByTelegramIdAsync(telegramId, cancellationToken);
 		if (user is null)
@@ -70,7 +70,7 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 			return;
 		}
 
-		var connections = await vpnUserRepo.GetConnectionsByTelegramIdAsync(user.Id, cancellationToken);
+		var connections = await wgUserRepo.GetConnectionsByTelegramIdAsync(user.Id, cancellationToken);
 
 		var userNameSuffix = string.IsNullOrWhiteSpace(user.UserName)
 			? string.Empty
@@ -98,12 +98,12 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 			.OrderByDescending(x => x.Peer.CreatedAt)
 			.ToArray();
 
-		// Трафик берём live из 3x-ui API — если он недоступен, просто не показываем статистику
-		Dictionary<Guid, XUiClient> clientsById = [];
+		// Трафик берём live из WireGuard API — если он недоступен, просто не показываем статистику
+		Dictionary<Guid, WireguardClients> clientsByWireGuardId = [];
 		try
 		{
-			var clients = await _xuiApiService.GetClients(cancellationToken) ?? [];
-			clientsById = clients.ToDictionary(x => x.Id);
+			var clients = await _wireGuardApiService.GetWireguardClients(cancellationToken) ?? [];
+			clientsByWireGuardId = clients.ToDictionary(x => x.Id);
 		}
 		catch (Exception)
 		{
@@ -128,15 +128,15 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 			.Take(PageSize)
 			.ToArray();
 
-		var rows = BuildPeerRows(pageConnections, request.Id, page, clientsById);
+		var rows = BuildPeerRows(pageConnections, request.Id, page, clientsByWireGuardId);
 
-		// Общий трафик считаем по снимкам (переживают рестарт xray или сброса трафика),
+		// Общий трафик считаем по снимкам (переживают рестарт интерфейса WireGuard на сервере),
 		// а не по живым счётчикам API — иначе после рестарта тут показывался бы 0 вместо реальной суммы.
-		var snapshotRepo = scope.ServiceProvider.GetRequiredService<IVpnTrafficSnapshotRepository>();
+		var snapshotRepo = scope.ServiceProvider.GetRequiredService<IWireGuardTrafficSnapshotRepository>();
 		long totalBytes = 0;
 		foreach (var connection in ordered)
 		{
-			var snapshots = await snapshotRepo.GetSnapshotsForPeriodAsync(connection.Peer.ClientId, sinceUtc: null, cancellationToken);
+			var snapshots = await snapshotRepo.GetSnapshotsForPeriodAsync(connection.Peer.WireGuardId, sinceUtc: null, cancellationToken);
 			var (rx, tx) = TrafficUsageCalculator.ComputeUsage(snapshots);
 			totalBytes += rx + tx;
 		}
@@ -185,10 +185,10 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 	}
 
 	private static List<InlineKeyboardButton[]> BuildPeerRows(
-		IEnumerable<Domain.Entities.VpnUser> connections,
+		IEnumerable<Domain.Entities.WireGuardUser> connections,
 		Guid userRequestId,
 		int page,
-		IReadOnlyDictionary<Guid, XUiClient> clientsById)
+		IReadOnlyDictionary<Guid, WireguardClients> clientsByWireGuardId)
 	{
 		var rows = new List<InlineKeyboardButton[]>();
 
@@ -196,7 +196,7 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 		{
 			var peer = c.Peer;
 
-			var statusIcon = clientsById.TryGetValue(peer.ClientId, out var client)
+			var statusIcon = clientsByWireGuardId.TryGetValue(peer.WireGuardId, out var client)
 				? (client.Enabled ? "🟢 " : "🔴 ")
 				: string.Empty;
 
@@ -204,7 +204,7 @@ public class UserConnectionsCallbackHandler : TelegramAdminCallbackHandlerBase
 				text: statusIcon + peer.Name,
 				callbackData: TelegramCallbackDataCodec.Encode(
 					new TelegramRequest(
-						Id: peer.ClientId,
+						Id: peer.WireGuardId,
 						CallbackEvent: TelegramCallbackEvent.GetFullInfo,
 						SourceEvent: TelegramCallbackEvent.UserConnections,
 						Page: page)));

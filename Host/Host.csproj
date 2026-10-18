@@ -17,7 +17,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Src\EFCore\EFCore.csproj" />
         <ProjectReference Include="..\Src\Telegram\Telegram.csproj" />
-        <ProjectReference Include="..\Src\XUi\XUi.csproj" />
+        <ProjectReference Include="..\Src\WireGuard\WireGuard.csproj" />
     </ItemGroup>
 
     <ItemGroup>
